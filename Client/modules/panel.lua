@@ -6,66 +6,86 @@
 -----------------------------------------------------------------------------------------------------------------
 
 local panel = {}
+	
+function panel.Register(tbl, name, base)
+	local PanelTab = tbl;
+	if( base and g_PanelList[base] ) then
+		PanelTab = {}
+		for k,v in pairs(g_PanelList[base]) do
+			PanelTab[k] = v;
+		end
+		for k,v in pairs(tbl) do
+			PanelTab[k] = v;
+		end
+	end
+	g_PanelList[name] = PanelTab;
+end
 
-function panel.Create(typ, parent)
+function panel.Create(name, parent)
 	local newPanel = Panel();
+	
 	if( parent ) then
-		table.insert(parent.Children, newPanel);
-		newPanel:SetParent( parent )
-	end		
-	local Type = g_PanelList[tostring(typ)] or g_PanelList["Frame"];
-	for k,v in pairs( Type ) do
+		newPanel:SetParent(parent);
+	end
+	for k,v in pairs(g_PanelList[name] or g_PanelList["Frame"]) do
 		newPanel[k] = v;
 	end
 	newPanel:Init();
+	
 	if( not parent ) then
 		table.insert(g_CurPanels, newPanel);
 	end
 	return newPanel;
 end
-
-function panel.Exists(name)
-	return g_PanelList[tostring(name)] or false;
-end
-
-function panel.Register(tbl, name, base)
-	local newPanel = {};
-	if( base and panel.Exists(base) ) then
-		for k,v in pairs(g_PanelList[tostring(base)]) do
-			newPanel[k] = v;
+	
+function panel.IsLive(pnl)
+	for k,v in pairs(g_CurPanels) do
+		if( v == pnl ) then
+			return true;
 		end
 	end
-	for k,v in pairs(tbl or {}) do
-		newPanel[k] = v;
+	return false;
+end
+
+function panel.Remove(pnl)
+	if( panel.IsLive(pnl) ) then
+		for k,v in pairs(g_CurPanels) do
+			if( v == pnl ) then
+				table.remove(g_CurPanels, k);
+			end
+		end
 	end
-	g_PanelList[tostring(name)] = newPanel;
+	return pnl;
 end
 
 function panel.GetAll()
-	return g_CurPanels or {};
+	return g_CurPanels;
+end
+
+function panel.PaintOver(p)
+	local pan = panel.Remove(p);
+	g_CurPanels[#g_CurPanels+1] = p;
+	--table.insert(g_CurPanels, p);
 end
 
 local function panelPaint()
-	--for i = #g_CurPanels, 1, -1 do
-	for i = 1, #g_CurPanels do	
-		if( g_CurPanels[i]:Live() ) then
+	for i = 0, #g_CurPanels-1 do
+		if( g_CurPanels[i] and g_CurPanels[i]:Live() and not g_CurPanels[i].Scissor ) then
 			g_CurPanels[i]:Paint();
-			g_CurPanels[i]:NoOverridePaint();
+			g_CurPanels[i]:_Paint();
 		end
 	end
 end
-hook.Add("__GUIDraw", "enginePanelPaint", panelPaint)
 
 local function panelThink()
-	for k,v in pairs(g_CurPanels) do
-		if( v and v:Live() ) then
-			v:Think();
-			v:NoOverride();
+	for i = #g_CurPanels, 1, -1 do
+		if( g_CurPanels[i] and g_CurPanels[i]:Live() ) then
+			g_CurPanels[i]:Think();
+			g_CurPanels[i]:_Think();
 		end
 	end
 end
-hook.Add("Think", "enginePanelThink", panelThink)
+hook.Add("Think", "_Engine.PanelThink", panelThink);
+hook.Add("__EngineDraw", "_Engine.PanelPaint", panelPaint);
 
-return  panel;
-		
-	
+return panel;

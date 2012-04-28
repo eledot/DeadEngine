@@ -10,7 +10,7 @@ local LABEL = {}
 function LABEL:Init()
 	self.Text = "";
 	self.MaxWidth = 999;
-	self.Color = Color(255,255,255,255);
+	self.Color = Color(22,22,22,255);
 	self.Aligns = "left";
 end
 
@@ -31,13 +31,11 @@ function LABEL:SetColor(col)
 end
 
 function LABEL:SetFont(fnt)
-	self.Font = fnt or false;
+	self.Font = fnt or "Default";
 end
 
 function LABEL:Paint()
-	if( self.Font ) then
-		surface.SetFont(self.Font);
-	end
+	surface.SetFont(self.Font);
 	surface.SetColor(self.Color.r, self.Color.g, self.Color.b, self.Color.a)
 	surface.DrawText(self.Text, self.Pos.x, self.Pos.y, self.MaxWidth, self.Aligns)
 end

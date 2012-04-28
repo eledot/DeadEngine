@@ -8,9 +8,10 @@
 local CLOSE = {}
 
 function CLOSE:Init()
-	self.TopColor = Color(66, 66, 66, 255);
-	self.Color = Color(77, 77, 77, 255);
+	self.Color = Color(225, 225, 225, 255);
 	self.ShowX = true;
+	self.XPos = eng.Fonts["fonts/coolvetica.ttf"]:getWidth("x");
+	self.YPos = eng.Fonts["fonts/coolvetica.ttf"]:getHeight("x");
 end
 
 function CLOSE:SetTarget(pnl)
@@ -22,34 +23,31 @@ function CLOSE:OnMousePressed()
 end
 
 function CLOSE:OnMouseEnter()
-	local TopColor, BottomColor = self.Color, self.TopColor;
-	self.Color = BottomColor;
-	self.TopColor = TopColor;
+	self.Color = Color(255, 255, 255, 255);
+	self.BorderColor = Color(255, 100, 100, 255);
+
 end
 
 function CLOSE:OnMouseExit()
-	local TopColor, BottomColor = self.Color, self.TopColor;
-	self.Color = BottomColor;
-	self.TopColor = TopColor;
+	self.Color = Color(225, 225, 225, 255);
+	self.BorderColor = Color(22, 22, 22, 180);
 end
 
 function CLOSE:SetShowX(b)
 	self.ShowX = b or false;
 end
 
-function CLOSE:SetTopColor(col)
-	self.TopColor = col or self.TopColor;
-end
-
 function CLOSE:Paint()
-	love.graphics.setColor(self.Color.r, self.Color.g, self.Color.b, self.Color.a);
-	love.graphics.rectangle("fill", self.Pos.x, self.Pos.y, self.Size.w, self.Size.h);
-	love.graphics.setColor(self.TopColor.r, self.TopColor.g, self.TopColor.b, self.TopColor.a);
-	love.graphics.rectangle("fill", self.Pos.x, self.Pos.y, self.Size.w, self.Size.h-6);
-	surface.SetColor(170, 170, 170, 255);
-	surface.DrawOutlinedRect(self.Pos.x, self.Pos.y, self.Size.w+1, self.Size.h+1);
+	surface.SetColor(self.BorderColor);
+	surface.DrawOutlinedRect(self.Pos.x, self.Pos.y, self.Size.w, self.Size.h);
+	surface.SetColor(self.Color);
+	gui.ScissorStart(self.Pos.x + 1, self.Pos.y, self.Size.w - 3, self.Size.h-1);
+		surface.DrawImage(eng.Textures["textures/gui/gradient-red.png"], self.Pos.x+1, self.Pos.y);
+	gui.ScissorEnd();
 	if( self.ShowX ) then
-		surface.DrawText("x", self.Pos.x + (self.Size.w/2) -3, self.Pos.y + ((self.Size.h/2) - 8), 300, "left");
+		surface.SetColor(Color(220, 220, 220, 255));
+		surface.SetFont("fonts/coolvetica.ttf");
+		surface.DrawText("x", (self.Pos.x) + (((self.Size.w -3 )/2) - self.XPos/2), (self.Pos.y) + ((( self.Size.h - 3)/2) - self.YPos/2), 300, "left");
 	end
 end
 
@@ -59,19 +57,15 @@ local TITLE = {}
 
 function TITLE:Init()
 	self.Title = "";
-	self.Font = "";
-	self.TopColor = Color(110, 110, 110, 255);
-	self.Color = Color( 120, 120, 120, 255);
+	self.Font = "Default";
+	self.Color = Color( 255, 255, 255, 255);
 	self.Draggable = true;
 	self.Dragging = false;
 end
 
-function TITLE:SetTopColor(col)
-	self.TopColor = col or Color(110, 110, 110, 255);
-end
-
 function TITLE:SetTitle(ttl)
 	self.Title = tostring(ttl) or "";
+	self.Height = self:GetHeight();
 end
 
 function TITLE:EnableDragging(b)
@@ -79,7 +73,12 @@ function TITLE:EnableDragging(b)
 end
 
 function TITLE:SetFont(fnt)
-	self.Font = tostring(fnt) or "";
+	self.Font = fnt or "Default";
+	self.Height = self:GetHeight();
+end
+
+function TITLE:GetHeight()
+	return eng.Fonts[self.Font]:getHeight();
 end
 
 function TITLE:OnMousePressed()
@@ -108,13 +107,15 @@ function TITLE:Think()
 end	
 
 function TITLE:Paint()
-	love.graphics.setColor(self.Color.r, self.Color.g, self.Color.b, self.Color.a);
-	love.graphics.rectangle("fill", self.Pos.x, self.Pos.y, self.Size.w, self.Size.h);
-	love.graphics.setColor(self.TopColor.r, self.TopColor.g, self.TopColor.b, self.TopColor.a);
-	love.graphics.rectangle("fill", self.Pos.x, self.Pos.y, self.Size.w, self.Size.h-6);
-	surface.SetColor(170, 170, 170, 255);
-	surface.DrawRect(self.Pos.x, self.Pos.y + 22, self.Size.w, 1);
-	surface.DrawText(self.Title, self.Pos.x + 2, self.Pos.y + (self.Size.h/2) -8, 300, "left");
+	surface.SetColor(self.BorderColor);
+	surface.DrawOutlinedRect(self.Pos.x, self.Pos.y, self.Size.w, self.Size.h);
+	surface.SetColor(self.Color)
+	gui.ScissorStart(self.Pos.x+1, self.Pos.y+1, self.Size.w-2, self.Size.h-2);
+		surface.DrawImage(eng.Textures["textures/gui/gradient-bar.png"], self.Pos.x+1, self.Pos.y+1);
+	gui.ScissorEnd()
+	surface.SetColor(Color(190, 190, 190, 255));
+	surface.SetFont(self.Font)
+	surface.DrawText(self.Title, self.Pos.x + 5, self.Pos.y + (self.Size.h/2) -self.Height/2, 300, "left");
 end
 
 panel.Register(TITLE, "TitleBar");
@@ -122,9 +123,12 @@ panel.Register(TITLE, "TitleBar");
 local FRAME = {}
 
 function FRAME:Init()
-	self.BorderColor = Color(190, 190, 190, 255);
-	self.Color = Color(140, 140, 140, 255);
+	self.Gradient = nil
 	self.EnableBorder = true;
+end
+
+function FRAME:SetGradient()
+	self.Gradient = eng.Textures[grad] or eng.Textures["textures/ui/gradient.png"];
 end
 
 function FRAME:SetEnableBorder(b)
@@ -143,13 +147,17 @@ end
 
 function FRAME:Paint()
 	if( self.EnableBorder ) then
-		love.graphics.setColor(self.BorderColor.r, self.BorderColor.g, self.BorderColor.b, self.BorderColor.a);
-		love.graphics.rectangle("line", self.Pos.x, self.Pos.y, self.Size.w, self.Size.h);
-		love.graphics.setColor(self.Color.r, self.Color.g, self.Color.b, self.Color.a);
-		love.graphics.rectangle("fill", self.Pos.x+1, self.Pos.y+1, self.Size.w-3, self.Size.h-3);
+		surface.SetColor(self.BorderColor)
+		surface.DrawOutlinedRect(self.Pos.x, self.Pos.y, self.Size.w, self.Size.h);
+	end
+	surface.SetColor(Color(255,255,255,255))
+	if( self.Gradient ) then
+		gui.ScissorStart(self.Pos.x+1, self.Pos.y+1, self.Size.w-2, self.Size.h-2);
+			surface.DrawImage(self.Gradient, self.Pos.x+1, self.Pos.y+2);
+		gui.ScissorEnd();
 	else
-		love.graphics.setColor(self.Color.r, self.Color.g, self.Color.b, self.Color.a);
-		love.graphics.rectangle("fill", self.Pos.x, self.Pos.y, self.Size.w, self.Size.h);
+		surface.SetColor(self.Color)
+		surface.DrawRect(self.Pos.x+1, self.Pos.y+1, self.Size.w-2, self.Size.h-2);
 	end
 end
 
@@ -162,15 +170,16 @@ function panel.CreateTitleFrame(title, close, x, y, w, h, font)
 	if( title ) then
 		TitleFrame.TitleBar = panel.Create("TitleBar", TitleFrame)
 		TitleFrame.TitleBar:SetTitle(tostring(title));
-		TitleFrame.TitleBar:SetSize(w - 6, 22);
-		TitleFrame.TitleBar:SetPos( 2, 2 );
+		TitleFrame.TitleBar:SetSize(w, 28);
+		TitleFrame.TitleBar:SetPos( 0, 0 );
 		if( close ) then
 			TitleFrame.TitleBar.CloseButton = panel.Create("CloseButton", TitleFrame.TitleBar);
 			TitleFrame.TitleBar.CloseButton:SetTarget(TitleFrame);
-			TitleFrame.TitleBar.CloseButton:SetSize(16, 16);
-			TitleFrame.TitleBar.CloseButton:SetPos(w - 24, 2 );
+			TitleFrame.TitleBar.CloseButton:SetSize(28,16);
+			TitleFrame.TitleBar.CloseButton:SetPos(w - 30, 1 );
 		end
 	end
+	TitleFrame:SetLive(true);
 	return TitleFrame;
 end
 	

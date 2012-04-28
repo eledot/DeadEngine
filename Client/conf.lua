@@ -10,7 +10,6 @@ love.filesystem.setIdentity("Dropdead");
 function love.conf(t)
 	t.console = true;
 	t.title = "Dropdead";
-	--t.screen.fullscreen = true;
 	t.screen.width = 1024;
 	t.screen.height = 768;
 	t.author = "Dropdead-Studios";

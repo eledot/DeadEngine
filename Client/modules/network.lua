@@ -5,18 +5,6 @@
 --	/___/ |_()_\ \____/ )_(    /___/ )___( )_/ \_(/___/        )____)   )_(  )____( /___/ )_____(\____/ )____) --
 -----------------------------------------------------------------------------------------------------------------
 
-local util = {};
+local network = {}
 
-function util.NoPanelInTheWay()
-	local pX, pY, pW, pH, mX, mY
-	for k,v in pairs(g_CurPanels) do
-		if( v:Live() and gui.IsHovering(v) ) then
-			return false;
-		end
-	end
-	return true;
-end
-			
-			
-
-return util;
+return network;

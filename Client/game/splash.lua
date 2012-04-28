@@ -8,7 +8,7 @@
 local SplashScreen = State();
 
 function SplashScreen:Init()
-	self.Image = Engine.Textures["textures/dropdeadstudios.png"];
+	self.Image = eng.Textures["textures/dropdeadstudios.png"];
 	self.Alpha = 0;
 	self.AlphaTime = 100;
 	self.StartTime = 40;

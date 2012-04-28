@@ -17,6 +17,7 @@ function TEXT:Init()
 	self.OnCount = false;
 	self.Text = "";
 	self.EntryBox = 1;
+	self.Font = "fonts/input.TTF";
 end
 
 function TEXT:SetMax(n)
@@ -29,7 +30,7 @@ function TEXT:Clear()
 end
 
 function TEXT:GetLength()
-	return love.graphics.getFont():getWidth(self.Text);
+	return eng.Fonts[self.Font]:getWidth(self.Text);
 end
 
 function TEXT:SetValue(t)
@@ -38,14 +39,22 @@ function TEXT:SetValue(t)
 end
 
 function TEXT:GetApproxChars()
-	local width = love.graphics.getFont():getWidth("M");
-	return math.ceil((self.Size.w -2)/width);
+	local width = eng.Fonts[self.Font]:getWidth("m");
+	return (math.ceil((self.Size.w -2)/width));
+end
+
+function TEXT:OnMousePressed()
+	eng.TextFocused = self;
 end
 
 function TEXT:OnTextChanged()
 end
 
 function TEXT:OnReturn()
+end
+
+function TEXT:GetValue()
+	return self.Text;
 end
 
 function TEXT:Paint()
@@ -60,7 +69,8 @@ function TEXT:Paint()
 		surface.SetColor(self.Color.r, self.Color.g, self.Color.b, self.Color.a);
 		surface.DrawRect(self.Pos.x+1, self.Pos.y+1, self.Size.w - 2, self.Size.h - 2);
 		surface.SetColor(0, 0, 0, 255);
-		if( Engine.TextFocused and Engine.TextFocused == self ) then
+		surface.SetFont(self.Font)
+		if( eng.TextFocused and eng.TextFocused == self ) then
 			if( self.OnCount ) then
 				surface.DrawText(string.sub(self.Text, math.Clamp(string.len(self.Text)-self:GetApproxChars(), 0, 250) ,string.len(self.Text)), self.Pos.x+2, self.Pos.y+2, self.Max*16, "left");
 			else

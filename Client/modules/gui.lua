@@ -23,12 +23,48 @@ function gui.ScreenClickerVisible()
 	return g_MouseVisible;
 end
 
-function gui.IsHovering( pnl )
+function gui._IsHovering( pnl )
 	if not pnl then return end
 	local x, y = pnl:GetPos();
 	local w, h = pnl:GetSize();
 	local mX, mY = gui.MousePos();
 	return ( mX > x and mX < x+w ) and ( mY > y and mY < y+h );
+end
+
+function gui._GetAllHovering()
+	local tab = {}
+	for i = 1, #g_CurPanels do
+		if( gui._IsHovering(g_CurPanels[i]) and g_CurPanels[i]:Live() ) then
+			table.insert(tab, g_CurPanels[i]);
+		end
+	end
+	return tab;
+end
+
+function gui._TopPanel()
+	local tb = gui._GetAllHovering();
+	return tb[#tb];
+end
+--[[
+	for k,v in pairs(gui._GetAllHovering()) do
+		for i = #g_CurPanels-1, 1, -1 do
+			if( g_CurPanels[i] == v ) then
+				return v;
+			end
+		end
+	end--]]
+--end
+
+function gui.GetTopParent(pn)		
+	local top = pn;
+	if( top.Parent ) then
+		top = gui.GetTopParent(top.Parent);
+	end
+	return top;
+end
+
+function gui.IsHovering(pnl)
+	return (gui._TopPanel() == gui.GetTopParent(pnl) and gui._IsHovering(pnl));
 end
 
 function gui.LeftClicked( pnl )

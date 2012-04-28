@@ -13,12 +13,13 @@ function Panel()
 		Alive = false,
 		Size = { w = 0, h = 0 },
 		Pos = { x = 0, y = 0 },
-		Color = Color(100, 100, 100, 255),
-		MouseHovered = false,
+		ActualPos = { x = 0, y = 0 },
+		Color = Color(235, 235, 235, 210),
+		BorderColor = Color(22, 22, 22, 180),
 		Children = {},
 		Parent = false,
 		ActualPos = {x = 0, y = 0},
-		RequireScissor = false
+		Scissor = false
 	}
 	setmetatable(panel, _R.Panel)
 	return panel;
@@ -69,16 +70,32 @@ function _R.Panel:SetLive(b)
 	end
 end
 
+function _R.Panel:_GetActualPos()
+	return self.ActualPos.x, self.ActualPos.y;
+end
+
 function _R.Panel:Live()
 	return self.Alive;
 end
 
 function _R.Panel:SetColor(col)
-	self.Color = col or Color(255,255,255,255);
+	self.Color = col or Color(245, 245, 245, 190);
+end
+
+function _R.Panel:SetBorderColor(col)
+	self.Color = col or Color(22, 22, 22, 180);
 end
 
 function _R.Panel:GetColor()
 	return self.Color;
+end
+
+function _R.Panel:SetScissor(b)
+	self.Scissor = b or false;
+end
+
+function _R.Panel:GetScissor()
+	return self.Scissor;
 end
 
 function _R.Panel:Paint()
@@ -105,51 +122,60 @@ end
 function _R.Panel:OnMouseRightReleased()
 end
 
-function _R.Panel:NoOverride()
-	if( gui.IsHovering( self ) ) then
-		if( not self.MouseHovered ) then
-			self:OnMouseEnter();
-			self.MouseHovered = true;
+function _R.Panel:_Think()
+	if( self:Live() ) then
+		if( gui.IsHovering(self) ) then
+			if( not self.Entered ) then
+				self.Entered = true;
+				self:OnMouseEnter();
+			end
+			if( gui.MouseDown("l") ) then
+				if( not self.Clicked ) then
+					eng.TextFocused = nil;
+					panel.PaintOver(gui.GetTopParent(self));
+					self.Clicked = true;
+					self:OnMousePressed();
+				end
+			end
+			if( gui.MouseDown("r") ) then
+				if( not self.rClicked ) then
+					if( self.Parent == nil ) then
+						panel.PaintOver(self);
+					end
+					eng.TextFocused = nil;
+					self.rClicked = true;
+					self:OnMouseRightPressed();
+				end
+			end
+		elseif( self.Entered ) then
+			self.Entered = false;
+			self:OnMouseExit();
 		end
-	elseif( self.MouseHovered ) then
-		self:OnMouseExit();
-		self.MouseHovered = false;
-	end
-	if( gui.LeftClicked(self) and not self.Clicked ) then
-		self.Clicked = true;
-		self:OnMousePressed();
-		if( self.EntryBox ) then
-			Engine.TextFocused = self;
-		else
-			Engine.TextFocused = nil;
+		if( self.Children[1] ) then
+			for k,v in pairs(self.Children) do
+				if( v:Live() ) then
+					v:Think();
+					v:_Think();
+				end
+			end
 		end
-	end
-	if( self.Clicked and not gui.MouseDown("l") ) then
-		self.Clicked = false;
-		self:OnMouseReleased();
-	end
-	if( gui.RightClicked(self) and not self.rClicked ) then
-		self.rClicked = true;
-		self:OnMouseRightPressed();
-	end
-	if( self.rClicked and not gui.MouseDown("r") ) then
-		self.rClicked = false;
-		self:OnMouseRightReleased();
-	end
-	if( self.Children[1] ) then
-		for k,v in pairs(self.Children) do
-			v:Think();
-			v:NoOverride();
+		if( self.Clicked and not gui.MouseDown("l") ) then
+			self:OnMouseReleased();
+			self.Clicked = false;
+		end
+		if( self.rClicked and not gui.MouseDown("r") ) then
+			self:OnMouseRightReleased();
+			self.rClicked = false;
 		end
 	end
 end
 
-function _R.Panel:NoOverridePaint()
-	for k,v in pairs(self.Children) do
-		if( v:Live() and  not v.RequireScissor ) then
-			v:Paint();
-			if( v.Children[1] ) then
-				v:NoOverridePaint();
+function _R.Panel:_Paint()
+	if( self.Children[1] and self:Live() ) then
+		for k,v in pairs(self.Children) do
+			if( v:Live() and not v:GetScissor() ) then
+				v:Paint();
+				v:_Paint();
 			end
 		end
 	end

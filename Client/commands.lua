@@ -11,27 +11,30 @@ local function luaDoString(...)
 end
 clientcommand.Create("lua_run", luaDoString);
 
-local function loadWorldEditor(...)
-	if( not Engine.WorldEditorEnabled ) then
-		Engine.WorldEditorEnabled = true;
+local function editorOpen()
+	if( not eng.Editor ) then
 		StateManager:Push(worldEditor);
+		eng.Editor = true;
 	end
 end
-clientcommand.Create("open_worldeditor", loadWorldEditor)
+clientcommand.Create("editor_open", editorOpen);
 
-local function closeWorldEditor(...)
-	if( Engine.WorldEditorEnabled ) then
-		Engine.WorldEditorEnabled = false;
+local function editorClose()
+	if( eng.Editor ) then
 		StateManager:Pop();
+		eng.Editor = false;
 	end
 end
-clientcommand.Create("close_worldeditor", closeWorldEditor)
+clientcommand.Create("editor_close", editorClose);
 
-local function showFps(...)
-	Engine.FPSLabel:SetText("FPS: "..love.timer.getFPS())
-	Engine.FPSLabel:SetLive( not Engine.FPSLabel:Live() );
-	Engine.FPSLabel.Think = function(btn)
-		btn.Text = "FPS: "..love.timer.getFPS();
+local function toggleFPS()
+	eng.ShowFPS = not eng.ShowFPS;
+end
+clientcommand.Create("toggle_bench_info", toggleFPS);
+
+local function toggleEditorGrid()
+	if( worldEditor and worldEditor.MapCanvas ) then
+		worldEditor.MapCanvas:ToggleGrid();
 	end
 end
-clientcommand.Create("show_fps", showFps);
+clientcommand.Create("editor_grid", toggleEditorGrid);

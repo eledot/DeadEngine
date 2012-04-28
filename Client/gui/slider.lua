@@ -11,10 +11,11 @@ function SLIDER:Init()
 	self.Min = 0;
 	self.Max = 100;
 	self.Cur = 0;
-	self.Color = Color(120, 120, 120, 255);
-	self.BorderColor = Color(170, 170, 170, 255);
+	self.Color = Color(150, 150, 150, 220);
+	self.BorderColor = Color(190, 190, 190, 190);
 	self.Padding = 2;
-	self.TextColor = Color(255,255,255,255);
+	self.TextColor = Color(46,46,46,255);
+	self.MinSize = love.graphics.getFont():getWidth(tostring(self.Min));
 end
 
 function SLIDER:SetTextColor(col)
@@ -28,6 +29,7 @@ end
 function SLIDER:SetMin(m)
 	self.Min = tonumber(m)
 	self.Cur = self.Min;
+	self.MinSize = love.graphics.getFont():getWidth(tostring(self.Min));
 end
 
 function SLIDER:SetBounds(m, ma)
@@ -36,28 +38,31 @@ function SLIDER:SetBounds(m, ma)
 end
 
 function SLIDER:TrackDistance()
-	return (self.Size.w - 39);
+	return (self.Size.w - 29);
+end
+
+function SLIDER:GetValue()
+	return self.Cur;
 end
 
 function SLIDER:SlidePercentage()
-	local Moved = self.Slider.ActualPos.x - self.Padding + -10;
+	local Moved = self.Slider.ActualPos.x - self.Padding;
 	return Moved / self:TrackDistance();
 end
 
 function SLIDER:Slide()
 	self.Cur = math.Clamp(math.ceil(self.Max*self:SlidePercentage()), self.Min, self.Max);
-	print(self.Cur)
 end
 
 function SLIDER:MakeParts()
 
 	self.Frame = panel.Create("Frame", self);
-	self.Frame:SetSize(self.Size.w-20, 6);
-	self.Frame:SetPos(10, 7);
+	self.Frame:SetSize(self.Size.w-10, 6);
+	self.Frame:SetPos(0, 7);
 	
 	self.Slider = panel.Create("Button", self)
 	self.Slider:SetSize(15, 20);
-	self.Slider:SetPos(self.Padding+10, 0)
+	self.Slider:SetPos(self.Padding, 0)
 	function self.Slider.OnMousePressed(btn)
 		btn.Dragging = true;
 		local pX = btn.ActualPos.x;
@@ -71,7 +76,7 @@ function SLIDER:MakeParts()
 		if( btn.Dragging ) then
 			local moveX, moveY = gui.MousePos();
 			moveX = moveX - btn.DirX;
-			btn:SetPos( math.Clamp(moveX, self.Padding+10, self.Padding+self:TrackDistance()+10), 0);
+			btn:SetPos( math.Clamp(moveX, self.Padding, self.Padding+self:TrackDistance()), 0);
 			self:Slide();
 		end
 	end
@@ -81,8 +86,7 @@ end
 
 function SLIDER:Paint()
 	surface.SetColor(self.TextColor);
-	surface.DrawText(self.Min, self.Pos.x-10, self.Pos.y + 3, 60, "left");
-	surface.DrawText(self.Max, self.Pos.x+self.Size.w-9, self.Pos.y + 3, 60, "left");
+	surface.DrawText(self.Cur, self.Pos.x+self.Size.w-8, self.Pos.y + 3, 60, "left");
 end
 	
 

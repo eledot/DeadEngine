@@ -5,123 +5,87 @@
 --	/___/ |_()_\ \____/ )_(    /___/ )___( )_/ \_(/___/        )____)   )_(  )____( /___/ )_____(\____/ )____) --
 -----------------------------------------------------------------------------------------------------------------
 
+socket = require "socket";
+-- Require global first, because it's got some important shit.
 require "global";
 
-Engine = {}
-Engine.GameTitle = "EngineTesting";
-Engine.TextFocused = false;
-Engine.Shift = false;
-Engine.WorldEditorEnabled = false;
-Engine.Characters = { "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", " " }
-Engine.Fonts = {
-	Default = love.graphics.getFont()
-}
-Engine.Tilesets = {};
-Engine.Textures = {};
-Engine.ShowFPS = false;
-Engine.SpecialChars = {
-	["1"] = "!",
-	["2"] = "@",
-	["3"] = "#",
-	["4"] = "$",
-	["5"] = "%",
-	["6"] = "^",
-	["7"] = "&", 
-	["8"] = "*",
-	["9"] = "(", 
-	["0"] = ")",
-	["-"] = "_",
-	["="] = "+",
-	[","] = "<",
-	["."] = ">",
-	["/"] = "?",
-	[";"] = ":",
-	["'"] = "\"",
-	["["] = "{",
-	["]"] = "}",
-	["\\"] = "|"
-}
-
+-- Json cause it's amazing.
 require "modules.json";
 
-hook = require "modules.hook";
-math = require "modules.maths";
-gui = require "modules.gui";
-string = require "modules.string";
-surface = require "modules.surface";
-util = require "modules.util";
-
+-- All our objects, leaving us with a false sense of OOP in Lua. Order is pretty important, as some rely on others.
 require "objects.color";
-require "objects.player";
-require "enums.partenums";
-require "objects.panel";
-require "objects.stack";
 require "objects.state";
+require "objects.stack";
+require "objects.panel";
 require "objects.clientcommand";
+require "objects.block";
 require "objects.mapcanvas";
---require "objects.map";
-require "objects.entity";
 
---map = require "modules.map";
---entity = require "modules.entity";
-player = require "modules.player";
+-- Now for our modules, doing it like this actually has no meaning whatsoever it just makes me look like I know what I'm doing.
+math = require "modules.maths";
+string = require "modules.string";
+hook = require "modules.hook";
+surface = require "modules.surface";
+gui = require "modules.gui";
 panel = require "modules.panel";
 clientcommand = require "modules.clientcommand";
+network = require "modules.network";
+simplex = require "modules.simplex";
 
+-- Our Gui elements.
 require "gui.frame";
-require "gui.textentry";
-require "gui.label";
 require "gui.button";
 require "gui.scroll";
-require "gui.link";
-require "gui.img";
 require "gui.slider";
+require "gui.label";
+require "gui.textentry";
+require "gui.progress";
 
-require "gui.console";
+eng = require "engine";
 
+require "console";
 require "commands";
 
-require "game.main";
-gameMain = require "game.game";
-gameMenu = require "game.menu";
+-- Game states, yeaaa.
+gameSplash = require "game.splash";
 worldEditor = require "game.editor";
-splashScreen = require "game.splash";
 
-Engine.FPSLabel = panel.Create("TextLabel")
-Engine.FPSLabel:SetPos(0, 0)
-Engine.FPSLabel:SetWide(300)
 
-function love.load()
-	Engine.ConsoleLabel("Loading Engine...", Color(100, 255, 133, 255)); 
-	Engine.ConsoleLabel("Precaching Images...", Color(100, 255, 133, 255));
-	for k,v in pairs(FileEnumerateRecursive("textures")) do
-		Engine.Textures[v] = love.graphics.newImage(v);
-	end
-	Engine.ConsoleLabel("Precaching Tiles...", Color(100, 255, 133, 255));
-	for k,v in pairs(FileEnumerateRecursive("tilesets")) do
-		Engine.Tilesets[v] = love.graphics.newImage(v);
-	end
-	Engine.ConsoleLabel("[[----------DeadEngine----------]]", Color(100, 100, 255, 255), "left");
-	Engine.ConsoleLabel("[[----By Dropdead-Studios----]]", Color(100, 100, 255, 255), "left");
-	Engine.ConsoleLabel("----------------------------------------------------------------------------", Color(255,255,255,255), "left");
+function love.load(arg)
+	love.graphics.setBackgroundColor(100, 100, 100, 255)
+	hook.Call("Initialize", arg);
 	StateManager = Stack();
-	StateManager:Push(gameMenu, true);
-	StateManager:Push(splashScreen);
-	hook.Call("Initialize");
+	StateManager:Push(gameSplash);
 end
 
 function love.update(dt)
-	if( gui.key.IsDown("lshift") or gui.key.IsDown("rshift") ) then
-		Engine.Shift = true;
-	else
-		Engine.Shift = false;
-	end
-	hook.Call("Think");
 	StateManager:Think(dt);
-	if( Engine.Console and Engine.Console:Live() ) then
-		Engine.Console:Think();
-		Engine.Console:NoOverride();
-	end
+	hook.Call("Think", dt);
+end
+
+function love.focus(f)
+	StateManager:Focus(f);
+	hook.Call("Focus", f);
+end
+
+function love.keypressed(k, u)
+	StateManager:KeyPressed(k,u);
+	hook.Call("KeyPressed", k, u);
+end
+
+function love.keyreleased(k, u)
+	StateManager:KeyReleased(k,u);
+	hook.Call("KeyReleased", k, u);
+end
+
+function love.mousepressed(x,y,b)
+	StateManager:MousePressed(x,y,b);
+	hook.Call("MousePressed", x, y, b);
+end
+
+function love.mousereleased(x,y,b)
+	StateManager:MouseReleased(x,y,b);
+	hook.Call("MouseReleased", x, y, b);
 end
 
 function love.draw()
@@ -129,74 +93,13 @@ function love.draw()
 	hook.Call("ScreenDraw");
 	StateManager:HudDraw();
 	hook.Call("HudDraw");
-	hook.Call("__GUIDraw");
-
-	if( Engine.Console and Engine.Console:Live() ) then
-		Engine.Console:Paint();
-		Engine.Console:NoOverridePaint();
-	end
-end
-
-function love.keypressed(key, uni)
-	if( key == "`" ) then
-		Engine.CreateConsole();
-		return
-	end
-	if( Engine.TextFocused ) then
-		if( Engine.TextFocused.Count == Engine.TextFocused.Max ) then
-			return
-		end
-		if( key == "backspace" and  Engine.TextFocused.Count > 0) then
-			Engine.TextFocused.Count = Engine.TextFocused.Count - 1;
-			Engine.TextFocused.Text = string.sub(Engine.TextFocused.Text, 0, Engine.TextFocused.Count);
-			Engine.TextFocused:OnTextChanged();
-			return
-		end
-		for k,v in pairs(Engine.Characters) do
-			if( key == v ) then
-				if( Engine.Shift ) then
-					Engine.TextFocused.Text = Engine.TextFocused.Text..string.upper(key);
-					Engine.TextFocused.Count = Engine.TextFocused.Count + 1;
-					Engine.TextFocused:OnTextChanged();
-				else
-					Engine.TextFocused.Text = Engine.TextFocused.Text..string.lower(key);
-					Engine.TextFocused.Count = Engine.TextFocused.Count + 1;
-					Engine.TextFocused:OnTextChanged();
-				end
-				return
-			end
-		end
-		for k,v in pairs(Engine.SpecialChars) do
-			if( key == k ) then
-				if( Engine.Shift ) then
-					Engine.TextFocused.Text = Engine.TextFocused.Text..v;
-					Engine.TextFocused.Count = Engine.TextFocused.Count + 1;
-					Engine.TextFocused:OnTextChanged();
-				else
-					Engine.TextFocused.Text = Engine.TextFocused.Text..k;
-					Engine.TextFocused.Count = Engine.TextFocused.Count + 1;
-					Engine.TextFocused:OnTextChanged();
-				end
-				return
-			end
-		end
-		if( key == "return" ) then
-			Engine.TextFocused:OnReturn();
-		end
-	end
-	StateManager:KeyPressed(key, uni);
-end
-
-function love.keyreleased(key, uni)
-	StateManager:KeyReleased(key, uni)
+	hook.Call("__EngineDraw");
+	hook.Call("__EngineConsole");
 end
 
 function love.quit()
-	StateManager:Shutdown();
 	hook.Call("Shutdown");
 	for i = 1, #StateManager.States do
 		StateManager:Pop();
 	end
 end
-
-

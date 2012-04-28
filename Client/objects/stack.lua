@@ -15,15 +15,13 @@ function Stack()
 	return stack;
 end
 
-function _R.Stack:Push(state, ini)
+function _R.Stack:Push(state)
 	local NumberStack = #self.States;
 	if( NumberStack > 0 ) then
 		self:Shutdown();
 	end
 	self.States[NumberStack+1] = state;
-	if( not ini ) then
-		self:Init();
-	end
+	self:Init();
 end
 
 function _R.Stack:Pop()
@@ -50,10 +48,24 @@ function _R.Stack:Init()
 	end
 end
 
-function _R.Stack:Update()
+function _R.Stack:MousePressed(x,y,b)
 	local NumberStack = #self.States;
 	if( NumberStack > 0 ) then
-		self.States[NumberStack]:Update();
+		self.States[NumberStack]:MousePressed(x,y,b);
+	end
+end
+
+function _R.Stack:MouseReleased(x,y,b)
+	local NumberStack = #self.States;
+	if( NumberStack > 0 ) then
+		self.States[NumberStack]:MouseReleased(x,y,b);
+	end
+end
+
+function _R.Stack:Focus(f)
+	local NumberStack = #self.States;
+	if( NumberStack > 0 ) then
+		self.States[NumberStack]:Focus(f);
 	end
 end
 
@@ -62,7 +74,7 @@ function _R.Stack:Color()
 	if( NumberStack > 0 ) then
 		return self.States[NumberStack].TextColor;
 	end
-	return Color(100, 100, 255, 255);
+	return Color(22, 22, 22, 255);
 end
 
 function _R.Stack:HudDraw()
@@ -72,10 +84,10 @@ function _R.Stack:HudDraw()
 	end
 end
 
-function _R.Stack:Think()
+function _R.Stack:Think(dt)
 	local NumberStack = #self.States;
 	if( NumberStack > 0 ) then
-		self.States[NumberStack]:Think();
+		self.States[NumberStack]:Think(dt);
 	end
 end
 

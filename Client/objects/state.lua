@@ -16,17 +16,21 @@ end
 
 function _R.State:Init()
 end
-function _R.State:Update()
-end
 function _R.State:HudDraw()
 end
 function _R.State:ScreenDraw()
 end
-function _R.State:Think()
+function _R.State:Think(dt)
 end
 function _R.State:Shutdown()
 end
 function _R.State:KeyPressed(k, u)
 end
 function _R.State:KeyReleased(k, u)
+end
+function _R.State:MousePressed(x,y,b)
+end
+function _R.State:MouseReleased(x,y,b)
+end
+function _R.State:Focus(f)
 end

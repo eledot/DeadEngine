@@ -17,13 +17,8 @@ g_EntitiesTable = {}
 g_Entities = {}
 g_ClientCommands = {}
 
-function ScrW()
-	return love.graphics.getWidth();
-end
-
-function ScrH()
-	return love.graphics.getHeight();
-end
+ScrW = love.graphics.getWidth;
+ScrH = love.graphics.getHeight;
 
 function CurTime()
 	return os.time() - g_Time;
@@ -44,7 +39,6 @@ function PrintTable(tbl, t, nt)
 		for k,v in pairs(tbl) do
 			if(type(v) == "table") then
 				print(tbs..k..":");
-				Engine.ConsoleLabel(tbs..k..":", textColor);
 				PrintTable(v, Tabs+1, true);
 			else
 				print(tbs..k.." = "..tostring(v));
@@ -55,27 +49,16 @@ function PrintTable(tbl, t, nt)
 	end
 end
 
-local oldPrint = print;
-function print(...)
-	local textColor = (StateManager and StateManager:Color()) or Color(100, 100, 255, 255);
-	local STRING = "";
-	local Pass = {...};
-	for k,v in pairs(Pass) do
-		if( #Pass > k ) then
-			STRING = STRING..v.." - ";
-		else
-			STRING = STRING..v;
-		end
-	end
-	Engine.ConsoleLabel(STRING, textColor);
-	oldPrint(...);
+function PrecacheTexture(text)
+	return love.graphics.newImage(text);
 end
 
-function RunString(...)
-	local Pass = {...}
-	Engine.ConsoleLabel("lua> "..table.concat(Pass, " "), Color(170, 170, 170, 255));	
-	local Func = assert(loadstring(tostring(table.concat(Pass," "))));
-	Func();
+function PrecacheSound(sound)
+	return love.audio.newSource(sound);
+end
+
+function PrecacheFont(fnt)
+	return love.graphics.newFont(fnt);
 end
 
 function FileEnumerateRecursive(dir, tree)
@@ -93,10 +76,38 @@ function FileEnumerateRecursive(dir, tree)
 	end
 	return fileTree;
 end
-		
+
+function RunString(...)
+	local Pass = {...}
+	eng.ConsoleLabel("lua> "..table.concat(Pass, " "), Color(22, 22, 22, 255));	
+	local Func = assert(loadstring(tostring(table.concat(Pass," "))));
+	Func();
+end
+
+local oldPrint = print;
+function print(...)
+	local textColor = (StateManager and StateManager:Color()) or Color(22, 22, 22, 255);
+	local STRING = "";
+	local Pass = {...};
+	for k,v in pairs(Pass) do
+		if( #Pass > k ) then
+			STRING = STRING..v.."      ";
+		else
+			STRING = STRING..v;
+		end
+	end
+	eng.ConsoleLabel(STRING, textColor);
+	oldPrint(...);
+end
+
+function debugPrint(...)
+	oldPrint(...);
+end
+	
 function FindMetaTable(strMeta)
 	return _R[tostring(strMeta)] or false;
 end
+
 
 			
 

@@ -9,21 +9,27 @@ local BUTTON = {}
 
 function BUTTON:Init()
 	self.Text = "";
-	self.TopColor = Color(66, 66, 66, 255);
-	self.Color = Color(77, 77, 77, 255);
-	self.BorderColor = Color(170, 170, 170, 255);
+	self.Color = Color(150, 150, 150, 220);
+	self.BorderColor = Color(190, 190, 190, 190);
+	self.TextColor = Color(46, 46, 46, 255);
 	self.Func = function(self) end;
 	self.Aligned = "center";
 end
 
+function BUTTON:OnMouseEnter()
+	self.Color = Color(190, 190, 190, 190);
+	self.BorderColor = Color(150, 150, 150, 22);
+end
+
+function BUTTON:OnMouseExit()
+	self.Color = Color(150, 150, 150, 220);
+	self.BorderColor = Color(190, 190, 190, 190);
+end
+
 function BUTTON:OnMousePressed()
-	local TopColor, BottomColor = self.Color, self.TopColor;
-	self.TopColor = TopColor;
-	self.Color = BottomColor;
 end
 
 function BUTTON:OnMouseReleased()
-	self:OnMousePressed()
 	self:Func();
 end
 
@@ -39,13 +45,17 @@ function BUTTON:Align(t)
 	self.Aligned = tostring(t) or "left";
 end
 
+function BUTTON:SetTextColor(col)
+	self.TextColor = col or self.TextColor;
+end
+
 function BUTTON:Paint()
-	love.graphics.setColor(self.Color.r, self.Color.g, self.Color.b, self.Color.a);
-	love.graphics.rectangle("fill", self.Pos.x, self.Pos.y, self.Size.w, self.Size.h);
-	love.graphics.setColor(self.TopColor.r, self.TopColor.g, self.TopColor.b, self.TopColor.a);
-	love.graphics.rectangle("fill", self.Pos.x, self.Pos.y, self.Size.w, self.Size.h-6);
+	surface.SetFont(eng.Fonts.Default);
 	surface.SetColor(self.BorderColor.r, self.BorderColor.g, self.BorderColor.b, self.BorderColor.a);
-	surface.DrawOutlinedRect(self.Pos.x, self.Pos.y, self.Size.w+1, self.Size.h+1);
+	surface.DrawOutlinedRect(self.Pos.x, self.Pos.y, self.Size.w, self.Size.h);
+	surface.SetColor(self.Color)
+	surface.DrawRect(self.Pos.x+1, self.Pos.y+1, self.Size.w-2, self.Size.h-2);
+	surface.SetColor(self.TextColor);
 	surface.DrawText(self.Text, self.Pos.x, self.Pos.y+2, self.Size.w, self.Aligned);
 end
 
@@ -67,26 +77,24 @@ end
 
 function BUTTON:SetToolTip(t)
 	self.ToolTip  = t
+	self.tW, self.tH = surface.GetFont():getWidth(t), surface.GetFont():getHeight();
 end
 
 function BUTTON:Paint()
 	if not self.Image then return end
- 	love.graphics.setColor(self.Color.r, self.Color.g, self.Color.b, self.Color.a);
-	love.graphics.rectangle("fill", self.Pos.x, self.Pos.y, self.Size.w, self.Size.h);
-	love.graphics.setColor(self.TopColor.r, self.TopColor.g, self.TopColor.b, self.TopColor.a);
-	love.graphics.rectangle("fill", self.Pos.x, self.Pos.y, self.Size.w, self.Size.h-6);
-	surface.SetColor(self.BorderColor.r, self.BorderColor.g, self.BorderColor.b, self.BorderColor.a);
-	surface.DrawOutlinedRect(self.Pos.x, self.Pos.y, self.Size.w+1, self.Size.h+1);
+	surface.SetColor(self.BorderColor)
+	surface.DrawOutlinedRect(self.Pos.x, self.Pos.y, self.Size.w, self.Size.h);
+	surface.SetColor(self.Color)
+	surface.DrawRect(self.Pos.x+1, self.Pos.y+1, self.Size.w-2, self.Size.h-2);
 	surface.SetColor(255, 255, 255, 255);
-	love.graphics.draw(self.Image, self.Pos.x + (self.Size.w/2) - (self.Image:getWidth()/2), self.Pos.y + (self.Size.h/2) - (self.Image:getHeight()/2));
+	surface.DrawImage(self.Image, self.Pos.x + (self.Size.w/2) - (self.Image:getWidth()/2), self.Pos.y + (self.Size.h/2) - (self.Image:getHeight()/2));
 	if( self.Hovering and self.ToolTip ) then
-		local Width, Height = love.graphics.getFont():getWidth(self.ToolTip), love.graphics.getFont():getHeight(self.ToolTip);
-		surface.SetColor(self.BorderColor.r, self.BorderColor.g, self.BorderColor.b, self.BorderColor.a);
-		surface.DrawOutlinedRect( self.Pos.x + 20, self.Pos.y + 20, Width+8, Height+4);
-		surface.SetColor(self.Color.r, self.Color.g, self.Color.b, self.Color.a);
-		surface.DrawRect(self.Pos.x + 21, self.Pos.y + 21, Width+6, Height+2);
-		surface.SetColor(230, 230, 230, 255);
-		surface.DrawText(self.ToolTip, self.Pos.x + 23, self.Pos.y + 23, Width+2, "center");
+		surface.SetColor(self.BorderColor);
+		surface.DrawOutlinedRect( self.Pos.x + 20, self.Pos.y + 20, self.tW+8, self.tH+4);
+		surface.SetColor(self.Color);
+		surface.DrawRect(self.Pos.x + 21, self.Pos.y + 21, self.tW+6, self.tH+2);
+		surface.SetColor(self.TextColor);
+		surface.DrawText(self.ToolTip, self.Pos.x + 23, self.Pos.y + 23, self.tW, "center");
 	end
 		
 end

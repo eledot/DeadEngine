@@ -22,7 +22,7 @@ function clientcommand.Check(comname, ...)
 	if( g_ClientCommands[comname] ) then
 		g_ClientCommands[comname]:Run(unpack(Pass));
 	else
-		Engine.ConsoleLabel("Console command '"..comname.."' does not exist!", Color(170, 170, 170, 255));
+		eng.ConsoleLabel("Console command '"..comname.."' does not exist!", Color(22, 22, 22, 255));
 	end
 end
 	

@@ -5,758 +5,413 @@
 --	/___/ |_()_\ \____/ )_(    /___/ )___( )_/ \_(/___/        )____)   )_(  )____( /___/ )_____(\____/ )____) --
 -----------------------------------------------------------------------------------------------------------------
 
-
-local WorldEditor = State();
-WorldEditor.Interfaces = {}
-WorldEditor.TextColor = Color(20, 255, 20, 255);
-WorldEditor.Dirs = {}
-WorldEditor.Dirs["Tilesets"] = "tilesets";
-WorldEditor.Dirs["Textures"] = "textures";
-WorldEditor.Selected = {}
-WorldEditor.CurrentLayer = "Ground";
-WorldEditor.CurrentRotation = 0;
-WorldEditor.Undid = {}
-
-
-WorldEditor.Map = {}
-WorldEditor.Map.Size = { x = 640, y = 640 };
-WorldEditor.Map.MapName = "Untitled";
-WorldEditor.Map.Layers = {}
-WorldEditor.Map.Layers["Ground"] = {}
-WorldEditor.Map.Layers["Environment"] = {}
-WorldEditor.Map.Layers["Collision"] = {}
-WorldEditor.Map.Layers["Entity"] = {}
-
-local function createTileSetBox()
-	if( WorldEditor.CurrentImage ) then
-		WorldEditor.CurrentImage = nil;
-	end
-	if( WorldEditor.Interfaces.TileBoxFrame ) then
-		for k,v in pairs(g_CurPanels) do
-			if( v == WorldEditor.Interfaces.TileBoxFrame ) then
-				local fr = table.remove(g_CurPanels, k);
-				fr = nil
-			end
-		end
-		WorldEditor.Interfaces.TileBoxFrame:SetLive(false);
-		WorldEditor.Interfaces.TileBoxFrame = nil;
-	end
-	WorldEditor.CurrentImage = Engine.Tilesets[WorldEditor.CurrentTileSet];
-	local iF = WorldEditor.Interfaces or {};
-	local fX = ((ScrW()/2)-(WorldEditor.CurrentImage:getWidth()/2)) - 3;
-	local fY = (ScrH()/2) - 300;
-	iF.TileBoxFrame = panel.CreateTitleFrame("TileSet: "..WorldEditor.CurrentTileSet, true, fX, fY, WorldEditor.CurrentImage:getWidth()+26, 600);
-	iF.TileBoxFrame:SetLive(true);
+local Editor = State();
+Editor.Interfaces = {}
+Editor.Interfaces.BarButtons = {}
+function Editor:Init()
+	print("--WorldEditor Enabled--");
 	
-	iF.TileBoxScroll = panel.Create("ScrollFrame", iF.TileBoxFrame);
-	iF.TileBoxScroll:SetPos(3, 25)
-	iF.TileBoxScroll:SetSize(iF.TileBoxFrame.Size.w - 6, 572);
-	iF.TileBoxScroll:EnableVerticalScrollbar();
-	iF.TileBoxScroll:SetLive(true);
+	Editor.Interfaces = {}
+	Editor.Interfaces.BarButtons = {}
 	
-	local ima = WorldEditor.CurrentImage;
-	iF.ImageBox = panel.Create("TileSetPanel")
-	iF.ImageBox:SetImage(ima);
-	iF.ImageBox:SetSize(ima:getWidth(), ima:getHeight());
-	iF.ImageBox:ToggleGrid()
+	Editor.Map = {}
 	
-	iF.TileBoxScroll:AddItem(iF.ImageBox);
-
-end
-
-local function SortY(a, b)
-	return a.PosY + a.iH < b.PosY + b.iH;
-end
+	Editor.Defaults = {}
+	Editor.Defaults.BlockSize = 16;
+	Editor.Defaults.Size = { x = 128, y = 128 };
+	Editor.Defaults.Name = "Untitled";
+	Editor.Defaults.Texture = eng.Textures["textures/ground/grass_light16.png"];
 	
-local function sortLayer(layer)
-	table.sort(WorldEditor.Map.Layers[layer], SortY);
-end
+	self:CreateGui();
+ 
 			
-local function saveMap()
-	sortLayer("Environment");
-	sortLayer("Ground");
-	love.filesystem.setIdentity("Dropdead/maps");
-	love.filesystem.write(string.lower(WorldEditor.Map.MapName)..".dmf", json.encode(WorldEditor.Map));
-	love.filesystem.setIdentity("Dropdead");
 end
 
-local function loadMap(mapname)
-	WorldEditor.Map = json.decode(tostring(love.filesystem.read(string.lower(tostring(mapname)))));
-end
-
-local function deleteMap(mapname)
-	love.filesystem.remove(string.lower(tostring(mapname)));
-end
-
-local function loadDialog()
-
-	local iF = WorldEditor.Interfaces or {};
-	
-	iF.NewLoad = panel.CreateTitleFrame("LoadMap", true, ScrW()/2-150, ScrH()/2-100, 300, 200);
-	iF.NewLoad:SetLive(true);
-	
-	iF.NewLoad.Scroll = panel.Create("ScrollFrame", iF.NewLoad)
-	iF.NewLoad.Scroll:SetSize(290, 130)
-	iF.NewLoad.Scroll:SetPos(5, 30);
-	iF.NewLoad.Scroll:EnableVerticalScrollbar(true);
-	iF.NewLoad.Scroll:SetLive(true)
-	
-	local SelectedMap
-	local Maps = FileEnumerateRecursive("maps")
-	
-	for k,v in pairs(Maps) do
-		local link = panel.Create("Link")
-		link:SetText(tostring(v));
-		link:SetSize(286, 20);
-		link.OnClick = function(lnk)
-			SelectedMap = tostring(v);
-		end
-		iF.NewLoad.Scroll:AddItem(link);
-	end
-	
-	iF.NewLoad.LoadButton = panel.Create("Button", iF.NewLoad);
-	iF.NewLoad.LoadButton:SetPos(5, 170)
-	iF.NewLoad.LoadButton:SetSize(140, 20)
-	iF.NewLoad.LoadButton:SetText("Load Map")
-	iF.NewLoad.LoadButton:SetLive(true);
-	iF.NewLoad.LoadButton.Func = function(btn)
-		if( SelectedMap ) then
-			loadMap(SelectedMap);
-			SelectedMap = nil
-			iF.NewLoad:SetLive(false)
-			for k,v in pairs(g_CurPanels) do
-				if( v == iF.NewLoad	) then
-					table.remove(g_CurPanels[k]);
-				end
-			end
-		end
-	end
-	
-	iF.NewLoad.DeleteButton = panel.Create("Button", iF.NewLoad);
-	iF.NewLoad.DeleteButton:SetPos(150, 170)
-	iF.NewLoad.DeleteButton:SetSize(145, 20);
-	iF.NewLoad.DeleteButton:SetText("Delete Map");
-	iF.NewLoad.DeleteButton:SetLive(true);
-	iF.NewLoad.DeleteButton.Func = function(btn)
-		if( SelectedMap ) then
-			deleteMap(SelectedMap)
-			SelectedMap = nil;
-			iF.NewLoad:SetLive(false)
-			for k,v in pairs(g_CurPanels) do
-				if( v == iF.NewLoad	) then
-					table.remove(g_CurPanels[k]);
-				end
-			end
-			loadDialog();
-		end
-	end
-	
-end
-
-local function saveDialog(b, c)
-	local CameFromNewMap = b or false;
-	local iF = WorldEditor.Interfaces or {};
-	
-	iF.NewSave = panel.CreateTitleFrame("SaveMap", true, ScrW()/2-100, ScrH()/2-100, 286, 94);
-	iF.NewSave:SetLive(true);
-	
-	iF.NewSave.TextLabel = panel.Create("TextLabel", iF.NewSave)
-	iF.NewSave.TextLabel:SetPos(5, 40);
-	iF.NewSave.TextLabel:SetSize(70, 18);
-	iF.NewSave.TextLabel:SetText("Save "..WorldEditor.Map.MapName.."?");
-	iF.NewSave.TextLabel:SetLive(true);
-	
-	iF.NewSave.Ok = panel.Create("Button", iF.NewSave)
-	iF.NewSave.Ok:SetPos(5, 62)
-	iF.NewSave.Ok:SetSize(133, 20)
-	iF.NewSave.Ok:SetText("Save");
-	iF.NewSave.Ok:SetLive(true);
-	iF.NewSave.Ok.Func = function(btn)
-		saveMap()
-		if( iF.NewMap and iF.NewMap.Create and CameFromNewMap ) then
-			iF.NewMap.Create:Func(true);
-		end
-		iF.NewSave:SetLive(false)
-		for k,v in pairs(g_CurPanels) do
-			if( v == iF.NewSave	) then
-				table.remove(g_CurPanels[k]);
-			end
-		end
-		if( c ) then	
-			clientcommand.Check("close_worldeditor");
-		end
-	end
-	
-	iF.NewSave.No = panel.Create("Button", iF.NewSave)
-	iF.NewSave.No:SetPos(147, 62)
-	iF.NewSave.No:SetSize(133, 20)
-	iF.NewSave.No:SetText("Don't Save");
-	iF.NewSave.No:SetLive(true);
-	iF.NewSave.No.Func = function(btn)
-		if( iF.NewMap and iF.NewMap.Create and CameFromNewMap ) then
-			iF.NewMap.Create:Func(true);
-		end
-		iF.NewSave:SetLive(false);
-		for k,v in pairs(g_CurPanels) do
-			if( v == iF.NewSave	) then
-				table.remove(g_CurPanels[k]);
-			end
-		end
-		if( c ) then	
-			clientcommand.Check("close_worldeditor");
-		end
-	end
-			
-	
-end
-
-local function newMap()
-	local iF = WorldEditor.Interfaces or {};
-	
-	iF.NewMap = panel.CreateTitleFrame("NewMap", true, ScrW()/2-143, ScrH()/2-47, 286, 94);
-	iF.NewMap:SetLive(true);
-	
-	iF.NewMap.TextLabel = panel.Create("TextLabel", iF.NewMap)
-	iF.NewMap.TextLabel:SetPos(5, 40)
-	iF.NewMap.TextLabel:SetSize(70, 18);
-	iF.NewMap.TextLabel:SetText("Map Name:");
-	iF.NewMap.TextLabel:SetLive(true);
-	
-	iF.NewMap.Entry = panel.Create("TextEntry", iF.NewMap)
-	iF.NewMap.Entry:SetPos(80, 40);
-	iF.NewMap.Entry:SetSize(200, 18);
-	iF.NewMap.Entry:SetLive(true);
-	
-	iF.NewMap.Create = panel.Create("Button", iF.NewMap)
-	iF.NewMap.Create:SetPos(5, 62)
-	iF.NewMap.Create:SetSize(276, 20);
-	iF.NewMap.Create:SetText("Create");
-	iF.NewMap.Create:SetLive(true);
-	iF.NewMap.Create.Func = function(btn,b)
-		if( not b and (WorldEditor.Map.Layers["Ground"][1] or WorldEditor.Map.Layers["Environment"][1] or WorldEditor.Map.Layers["Collision"][1] or WorldEditor.Map.Layers["Entity"][1]) ) then
-			saveDialog(true);
-		elseif( string.len(iF.NewMap.Entry.Text) > 0 ) then
-			WorldEditor.Map.MapName = tostring(iF.NewMap.Entry.Text);
-			WorldEditor.Map.Layers["Ground"] = {}
-			WorldEditor.Map.Layers["Environment"] = {}
-			WorldEditor.Map.Layers["Collision"] = {}
-			WorldEditor.Map.Layers["Entity"] = {}
-			iF.NewMap:SetLive(false);
-			for k,v in pairs(g_CurPanels) do
-				if( v == iF.NewMap ) then
-					table.remove(g_CurPanels[k]);
-				end
-			end
-		end
-	end
-end
-
-local function createWorldBar()
-	local iF = WorldEditor.Interfaces or {};
-	iF.FileBar = panel.Create("FileBar");
-	iF.FileBar:SetPos(0, 0);
-	iF.FileBar:SetSize(ScrW(), 24);
-	iF.FileBar:SetLive(true);
-	
-	local BarButtons = {}
-	BarButtons["ToggleGrid"] = {
-		Func = function(btn) 
-			if( WorldEditor.MapCanvas ) then
-				WorldEditor.MapCanvas.UseGrid = not WorldEditor.MapCanvas.UseGrid;
-			end
-		end,
-		Image = "textures/ui/grid.png",
-		PosX = iF.FileBar.Size.w - 145,
-		PosY = 3,
-		SizeX = 16,
-		SizeY = 16
+local function AddButton(tt, im, f, x, y)
+	local newButt = {
+		ToolTip = tt,
+		Image = eng.Textures["textures/ui/"..im..".png"],
+		Func = f,
+		PosX = x,
+		PosY = y
 	}
-	BarButtons["Tileset Selector"] = {
-		Func = function(btn)
-			if( iF.TileFrame ) then
-				iF.TileFrame:SetLive( not iF.TileFrame:Live() );
-			end
-		end,
-		Image = "textures/ui/tilesel.png";
-		PosX = iF.FileBar.Size.w - 166,
-		PosY = 3,
-		SizeX = 16,
-		SizeY = 16
-	}
-	BarButtons["Layout Panels"] = {
-		Func = function(btn)
-			if( iF.TileFrame ) then
-				iF.TileFrame:SetPos(2, 24);
-			end
-		end,
-		Image = "textures/ui/layout.png";
-		PosX = iF.FileBar.Size.w - 187,
-		PosY = 3,
-		SizeX = 16,
-		SizeY = 16
-	}
-	BarButtons["Save"] = {
-		Func = function(btn)
-			saveMap();
-		end,
-		Image = "textures/ui/save.png";
-		PosX = iF.FileBar.Size.w - 229,
-		PosY = 3,
-		SizeX = 16,
-		SizeY = 16
-	}
-	BarButtons["Load"] = {
-		Func = function(btn)
-			loadDialog();
-		end,
-		Image = "textures/ui/load.png";
-		PosX = iF.FileBar.Size.w - 208,
-		PosY = 3,
-		SizeX = 16,
-		SizeY = 16
-	}
-	BarButtons["New Map"] = {
-		Func = function(btn)
-			newMap();
-		end,
-		Image = "textures/ui/newmap.png",
-		PosX = iF.FileBar.Size.w-250,
-		PosY = 3,
-		SizeX = 16,
-		SizeY = 16
-	}
-	BarButtons["Clear Map"] = {
-		Func = function (btn)
-			WorldEditor.Map.Layers["Ground"] = {}
-			WorldEditor.Map.Layers["Environment"] = {}
-			WorldEditor.Map.Layers["Collision"] = {}
-			WorldEditor.Map.Layers["Entity"] = {}
-		end,
-		Image = "textures/ui/clearmap.png",
-		PosX = iF.FileBar.Size.w-271,
-		PosY = 3,
-		SizeX = 16,
-		SizeY = 16
-	}
-	BarButtons["Collision Layer"] = {
-		Func = function(btn)
-			WorldEditor.CurrentLayer = "Collision";
-		end,
-		Image = "textures/ui/collision.png",
-		PosX = iF.FileBar.Size.w-292,
-		PosY = 3,
-		SizeX = 16,
-		SizeY = 16
-	}
-	BarButtons["Environment Layer"] = {
-		Func = function(btn)
-			WorldEditor.CurrentLayer = "Environment";
-		end,
-		Image = "textures/ui/environment.png",
-		PosX = iF.FileBar.Size.w-313,
-		PosY = 3,
-		SizeX = 16,
-		SizeY = 16
-	}
-	BarButtons["Ground Layer"] = {
-		Func = function(btn)
-			WorldEditor.CurrentLayer = "Ground";
-		end,
-		Image = "textures/ui/ground.png",
-		PosX = iF.FileBar.Size.w-334,
-		PosY = 3,
-		SizeX = 16,
-		SizeY = 16
-	}
-	BarButtons["Entity Layer"] = {
-		Func = function(btn)
-			WorldEditor.CurrentLayer = "Entity";
-		end,
-		Image = "textures/ui/entity.png",
-		PosX = iF.FileBar.Size.w-355,
-		PosY = 3,
-		SizeX = 16,
-		SizeY = 16
-	}
-	BarButtons["Undo"] = {
-		Func = function(btn)
-			if( #WorldEditor.Map.Layers[WorldEditor.CurrentLayer] > 0 ) then 
-				table.insert(WorldEditor.Undid, table.remove(WorldEditor.Map.Layers[WorldEditor.CurrentLayer], WorldEditor.Map.Layers[#WorldEditor.CurrentLayer]));
-			end
-		end,
-		Image = "textures/ui/rotneg.png",
-		PosX = iF.FileBar.Size.w - 376,
-		PosY = 3,
-		SizeX = 16,
-		SizeY = 16
-	}
-	BarButtons["Redo"] = {
-		Func = function(btn)
-			if( #WorldEditor.Undid > 0 ) then
-				table.insert(WorldEditor.Map.Layers[WorldEditor.CurrentLayer], table.remove(WorldEditor.Undid, #WorldEditor.Undid));
-			end
-		end,
-		Image = "textures/ui/rotpos.png",
-		PosX = iF.FileBar.Size.w - 397,
-		PosY = 3,
-		SizeX = 16,
-		SizeY = 16
-	}
-	BarButtons["Close Editor"] = {
-		Func = function(btn)
-			if(WorldEditor.Map.Layers["Ground"][1] or WorldEditor.Map.Layers["Environment"][1] or WorldEditor.Map.Layers["Collision"][1] or WorldEditor.Map.Layers["Entity"][1]) then
-				saveDialog(false, true);
-			else
-				clientcommand.Check("close_worldeditor");
-			end
-		end,
-		Image = "textures/ui/close.png",
-		PosX = 3,
-		PosY = 3,
-		SizeX = 16,
-		SizeY = 16
-	}
-	
-	for k,v in pairs(BarButtons) do
-		local newButton = panel.Create("ImageButton", iF.FileBar)
-		newButton:SetPos(v.PosX, v.PosY);
-		newButton:SetSize(v.SizeX, v.SizeY);
-		newButton:SetImage(Engine.Textures[v.Image]);
-		newButton.Func = v.Func;
-		newButton:SetToolTip(k);
-		newButton:SetLive(true)
-	end
-	
-	iF.yEntry = panel.Create("TextEntry", iF.FileBar)
-	iF.yEntry:SetPos(iF.FileBar.Size.w - 50, 3);
-	iF.yEntry:SetSize(47, 18);
-	iF.yEntry:SetValue("640");
-	iF.yEntry:SetLive(true);
-	function iF.yEntry.OnTextChanged(entr)
-		if( type(tonumber(entr.Text)) == "number" ) then
-			WorldEditor.Map.Size.y = math.Clamp(tonumber(entr.Text), 640, 8192);
-			if( WorldEditor.MapCanvas ) then
-				WorldEditor.MapCanvas.h = WorldEditor.Map.Size.y;
-			end
-		end
-
-	end
-	
-	iF.yLabel = panel.Create("TextLabel", iF.FileBar)
-	iF.yLabel:SetPos(iF.FileBar.Size.w - 61, 3);
-	iF.yLabel:SetSize(20, 18);
-	iF.yLabel:SetText("y:");
-	iF.yLabel:SetLive(true);
-	
-	iF.xEntry = panel.Create("TextEntry", iF.FileBar)
-	iF.xEntry:SetPos(iF.FileBar.Size.w - 114, 3);
-	iF.xEntry:SetSize(47, 18);
-	iF.xEntry:SetValue("640");
-	iF.xEntry:SetLive(true);
-	function iF.xEntry.OnTextChanged(entr)
-		if( type(tonumber(entr.Text)) == "number" ) then
-			WorldEditor.Map.Size.x = math.Clamp(tonumber(entr.Text), 640, 8192);
-			if( WorldEditor.MapCanvas ) then
-				WorldEditor.MapCanvas.w = WorldEditor.Map.Size.x;
-			end
-		end
-	end
-
-	iF.xLabel = panel.Create("TextLabel", iF.FileBar)
-	iF.xLabel:SetPos(iF.FileBar.Size.w - 125, 3);
-	iF.xLabel:SetSize(20, 18);
-	iF.xLabel:SetText("x:");
-	iF.xLabel:SetLive(true);
-	
-	iF.InfoLabel = panel.Create("TextLabel", iF.FileBar)
-	iF.InfoLabel:SetPos(24, 3)
-	iF.InfoLabel:SetText("TileCount: x: "..WorldEditor.Map.Size.x/64 .." y: "..WorldEditor.Map.Size.y/32 .. " FPS: "..love.timer.getFPS() .." MapName: "..WorldEditor.Map.MapName);
-	iF.InfoLabel:SetSize(50, 18);
-	iF.InfoLabel:SetLive(true);
-	iF.InfoLabel.Think = function(bt)
-		if( love.timer.getFPS() > 50 ) then
-			bt.Color = Color(100, 255, 100, 255);
-		else
-			bt.Color = Color(255, 100, 100, 255);
-		end
-		bt.Text = "TileCount: x: ".. WorldEditor.Map.Size.x/64 .." y: ".. WorldEditor.Map.Size.y/32 .. " FPS: "..love.timer.getFPS() .." MapName: "..WorldEditor.Map.MapName;
-	end
-	iF.InfoLabel:Align("left");
-		
-	
-	iF.TileFrame = panel.CreateTitleFrame("Tileset Selector", false, 2, 24, 196, 288);
-	iF.TileFrame:SetLive(true)
-	
-	iF.TileFrame.ScrollFrame = panel.Create("ScrollFrame", iF.TileFrame);
-	local tlf = iF.TileFrame.ScrollFrame;
-	tlf:SetPos(3, 28)
-	tlf:SetSize(190, 230);
-	tlf:SetLive(true);
-	
-	iF.TileFrame.Select = panel.Create("Button", iF.TileFrame);
-	local tlb = iF.TileFrame.Select;
-	tlb:SetPos(3, 260);
-	tlb:SetSize(190, 25);
-	tlb:SetText("Select Tileset");
-	tlb:SetLive(true)
-	tlb.CurrentSelect = "";
-	tlb.Func = function(btn)
-		if( tlb.CurrentSelect ~= "" ) then
-			WorldEditor.CurrentTileSet = tlb.CurrentSelect;
-			createTileSetBox();
-		end
-	end
-			
-	
-	for k,v in pairs(Engine.Tilesets) do
-		local label = panel.Create("Link");
-		label:SetSize(200, 20);
-		label:SetText(tostring(k));
-		label.OnClick = function(btn)
-			tlb.CurrentSelect = label.Text;
-		end
-		tlf:AddItem(label);
-	end
-	WorldEditor.CurrentTileSet = tlf.Items[1].Text;
+	table.insert(Editor.Interfaces.BarButtons, newButt);
 end
 
-function WorldEditor:Init()
-	self.Interfaces = {}
-	WorldEditor.Map.Size = { x = 640, y = 640 };
-	WorldEditor.Map.MapName = "Untitled";
-	WorldEditor.Map.Layers = {}
-	WorldEditor.Map.Layers["Ground"] = {}
-	WorldEditor.Map.Layers["Environment"] = {}
-	WorldEditor.Map.Layers["Collision"] = {}
-	WorldEditor.Map.Layers["Entity"] = {}
-	Engine.ConsoleLabel("[[----WorldEditor Initialized----]]", self.TextColor, "left");
-	createWorldBar()
-	self.MapCanvas = MapCanvas(0, 0, self.Map.Size.x, self.Map.Size.y);
-end
-
-function WorldEditor:GetMapSize()
-	return self.Map.Size;
-end
-
-local function getHighestLeft()
-	local topY = 9999;
-	local topX = 9999;
-	if( worldEditor and worldEditor.Selected ) then
-		for k,v in pairs(worldEditor.Selected) do
-			if(v.x < topX and v.y < topY) then
-				topY = v.y;
-				topX = v.x;
-			end
-		end
-	end
-	return topX, topY;
-end
-
-local function getLowestRight()
-	local lowY, lowX = 0, 0;
-	if( worldEditor and worldEditor.Selected ) then
-		for k,v in pairs(worldEditor.Selected) do
-			if( v.x+64 >= lowX and v.y+32 >= lowY ) then
-				lowX = v.x+64;
-				lowY = v.y+32;
-			end
-		end
-	end
-	return lowX, lowY;
-end
-
-local function addToLayer(layer,b)
-	local layer = tostring(layer) or "Ground";
-	local MapX, MapY = WorldEditor.MapCanvas:GetPos();
-	local WorldX, WorldY = WorldEditor.MapCanvas.WorldPos.x, WorldEditor.MapCanvas.WorldPos.y;
-	local ImageX, ImageY = WorldEditor.Selected.x, WorldEditor.Selected.y;
-	local Image = WorldEditor.CurrentTileSet;
-	
-	local SelTab = {}
-	local Tab = {}
-	local lastX, lastY = 0, 0;
-
-	if( not b ) then
-		for k,v in pairs(WorldEditor.Selected) do
-			Tab = {
-				PosX = math.abs(MapX) + WorldX + lastX,
-				PosY = math.abs(MapY) + WorldY + lastY,
-				iX = v.x,
-				iY = v.y,
-				iW = 64,
-				iH = 32,
-				Quad = love.graphics.newQuad(v.x, v.y, 64, 32, v.Image:getWidth(), v.Image:getHeight()),
-				Image = v.Image
-			}
-			if( worldEditor.Selected[k+1] ) then
-				lastX = lastX + ( worldEditor.Selected[k+1].x - v.x );
-				lastY = lastY + ( worldEditor.Selected[k+1].y - v.y );
-			end
-			table.insert(SelTab, Tab);
-		end
-	else
-		Tab = {
-			PosX = math.abs(MapX) + WorldX,
-			PosY = math.abs(MapY) + WorldY,
-		}
-	end
-	--if( layer == "Ground" or b ) then
-	--	for k,v in pairs(WorldEditor.Map.Layers[layer]) do
-	--		if( v.PosX == Tab.PosX and v.PosY == Tab.PosY ) then
-	--			table.remove(WorldEditor.Map.Layers[layer], k)
-	--		end
-	--	end
-	--end
---	if( layer == "Ground" ) then
---		for k,v in pairs(SelTab) do
---			table.insert(WorldEditor.Map.Layers[layer], v);
---		end
---	elseif( not b ) then
-	if( not b ) then
-		local x, y = getHighestLeft();
-		local w, h = getLowestRight();
-		w, h = w-x, h-y;
-		Tab = {
-			PosX = math.abs(MapX) + WorldX,
-			PosY = math.abs(MapX) + WorldY,
-			iX = x,
-			iY = y,
-			iW = w,
-			iH = h,
-			PosZ = 0,
-			Quad = love.graphics.newQuad(x, y, w, h, WorldEditor.CurrentImage:getWidth(), WorldEditor.CurrentImage:getHeight()),
-			Image = WorldEditor.CurrentImage
-		}
-		table.insert(WorldEditor.Map.Layers[layer], Tab);
-	end
-	--if( layer ~= "Ground" ) then
-		sortLayer(layer);
-	--end
-	Tab = nil;
-end
-
-local function addToCollision(b)
-	local MapX, MapY = WorldEditor.MapCanvas:GetPos();
-	local WorldX, WorldY = WorldEditor.MapCanvas.WorldPos.x, WorldEditor.MapCanvas.WorldPos.y;
-	
-	local Tab = {
-		PosX = math.abs(MapX) + WorldX,
-		PosY = math.abs(MapY) + WorldY
-	}
-	
-	for k,v in pairs(WorldEditor.Map.Layers["Collision"]) do
-		if( v.PosX == Tab.PosX and v.PosY == Tab.PosY ) then
-			table.remove(WorldEditor.Map.Layers["Collision"], k);
-		end
-	end
-	
-	if( not b ) then
-		table.insert(WorldEditor.Map.Layers["Collision"], Tab);
-	end
-	Tab = nil;
-end
-
-local LastDT = 3;
-function WorldEditor:Think(dt)
-	if( self.MapCanvas ) then
-		self.MapCanvas:Think();
-		local posX, posY = self.MapCanvas:GetPos();
-		if( gui.key.IsDown("left") ) then
-			self.MapCanvas:SetPos(posX + 10, posY);
-		elseif( gui.key.IsDown("right") ) then
-			self.MapCanvas:SetPos(posX - 10, posY);
-		elseif( gui.key.IsDown("up") ) then
-			self.MapCanvas:SetPos(posX, posY+10);
-		elseif( gui.key.IsDown("down") ) then
-			self.MapCanvas:SetPos(posX, posY-10);
-		elseif( gui.key.IsDown("left") and gui.key.IsDown("up") ) then
-			self.MapCanvas:SetPos(posX+10, posY+10);
-		elseif( gui.key.IsDown("left") and gui.key.IsDown("down") ) then
-			self.MapCanvas:SetPos(posX+10, posY-10);
-		elseif( gui.key.IsDown("right") and gui.key.IsDown("up") ) then
-			self.MapCanvas:SetPos(posX-10, posY+10);
-		elseif( gui.key.IsDown("right") and gui.key.IsDown("down") ) then
-			self.MapCanvas:SetPos(posX-10, posY-10);
-		end
-		
-		if( gui.key.IsDown("r") ) then
-			WorldEditor.Selected = {}
-		end
-			
-		if( self.MapCanvas.WorldPos and self.MapCanvas.WorldPos.x ) then			
-			if( gui.key.IsDown("lalt") and gui.MouseDown("l") and util.NoPanelInTheWay() ) then
-				if ( (self.CurrentLayer == "Ground" or self.CurrentLayer == "Environment") and (self.Selected) ) then
-					if( LastDT == 3) then
-						addToLayer(WorldEditor.CurrentLayer);
-					end
-				elseif( self.CurrentLayer == "Collision" ) then
-					addToCollision();
-				end
-			elseif( gui.MouseDown("r") and util.NoPanelInTheWay() ) then
-				if ( self.CurrentLayer == "Ground" or self.CurrentLayer == "Environment" ) then
-					addToLayer(WorldEditor.CurrentLayer, true);
-				elseif( self.CurrentLayer == "Collision" ) then
-					addToCollision(true);
-				end
-			end
-		end
-		LastDT = (LastDT == 3 and 0) or LastDT+1;
-	end
-end
-
-local imgQuad, Alpha
-local mapdX, mapdY, curImg
-function WorldEditor:ScreenDraw()
-	--surface.DrawIsometricGrid(self:GetMapSize().x+2, self:GetMapSize().y+4)
-	Alpha = 255;
-	if( self.MapCanvas ) then
-		mapdX, mapdY = self.MapCanvas:GetPos();
-		self.MapCanvas:Paint()
-		for k,v in pairs(self.Map.Layers["Ground"]) do
-			if( (mapdX + v.PosX)-128 < ScrW() and (mapdX + (v.PosX))+128 > 0 and (mapdY + v.PosY)-64 < ScrH() and (mapdY + (v.PosY))+64 > 0 ) then
-				Alpha = (self.CurrentLayer == "Ground" and 255) or 150;
-				surface.SetColor(255, 255, 255, Alpha)
-				love.graphics.drawq(v.Image, v.Quad, mapdX+v.PosX, mapdY+v.PosY);
-			end
-		end
-		local lmp = self.Map.Layers["Environment"];
-		for i = 1, #lmp do
-			if( (mapdX + lmp[i].PosX)-(lmp[i].iW*2) < ScrW() and (mapdX + (lmp[i].PosX))+(lmp[i].iW*2) > 0 and (mapdY + lmp[i].PosY)-(lmp[i].iH*2) < ScrH() and (mapdY + (lmp[i].PosY))+(lmp[i].iH*2) > 0 ) then
-				Alpha = (self.CurrentLayer == "Environment" and 255) or 70;
-				surface.SetColor(255, 255, 255, Alpha)
-				love.graphics.drawq(lmp[i].Image, lmp[i].Quad, mapdX+lmp[i].PosX, mapdY+lmp[i].PosY);
-			end
-		end
-		for k,v in pairs(self.Map.Layers["Collision"]) do
-			if( (mapdX + v.PosX)-128 < ScrW() and (mapdX + (v.PosX))+128 > 0 and (mapdY + v.PosY)-64 < ScrH() and (mapdY + (v.PosY))+64 > 0 ) then
-				Alpha = (self.CurrentLayer == "Collision" and 120) or 80;
-				surface.SetColor(255, 100, 100, Alpha);
-				surface.DrawRect(mapdX+v.PosX, mapdY+v.PosY, 64, 32);
-			end
-		end
-		self.MapCanvas:PaintSelector();
-	end
-end
-
-function WorldEditor:KeyPressed(k, u)
-end
-
-function WorldEditor:Shutdown()
-	if( not self.Interfaces ) then
+local function closeEditor()
+	if( Editor.MapCanvas ) then
+		-- Save dialog with true exit.
+			print("HERE")
 		return
 	end
-	Engine.ConsoleLabel("[[----WorldEditor Shutting Down----]]", self.TextColor, "left");
-	for k,v in pairs(self.Interfaces) do
-		v:SetLive(false)
-		for i = 1, #g_CurPanels do
-			if( g_CurPanels[i] == v ) then
-				table.remove(g_CurPanels, i);
-			end
-		end
-		v = nil;
-	end
-	self.Interfaces = nil;
-	self.MapCanvas = nil;
+	clientcommand.Check("editor_close");
 end
 
-return WorldEditor;
+function Editor:SaveDialog()
+	local inter = self.Interfaces or {}
+	inter.Save = panel.CreateTitleFrame("Save Map", true, ScrW()/2 - 200, ScrH()/2-50, 400, 100)
+	
+	inter.SaveText = panel.Create("TextEntry", inter.Save)
+	inter.SaveText:SetPos(5, 50)
+	inter.SaveText:SetSize(390, 20)
+	
+	inter.SaveLabel = panel.Create("TextLabel", inter.Save)
+	inter.SaveLabel:SetPos(5, 30)
+	inter.SaveLabel:SetSize(390, 20)
+	inter.SaveLabel:SetText("Map Name:");
+	
+	inter.SaveButton = panel.Create("Button", inter.Save)
+	inter.SaveButton:SetPos(5, 75)
+	inter.SaveButton:SetSize(193, 20)
+	inter.SaveButton:SetText("Save Map")
+	inter.SaveButton.Func = function()
+		if( inter.SaveText.Text == "" ) then
+			return;
+		end
+		Editor.Map.Name = inter.SaveText.Text;
+		Editor:SaveMap();
+		panel.Remove(inter.Save)
+		inter.Save = nil;
+	end
+	
+	inter.CancelButton = panel.Create("Button", inter.Save)
+	inter.CancelButton:SetPos(202, 75)
+	inter.CancelButton:SetSize(193, 20)
+	inter.CancelButton:SetText("Cancel Save")
+	inter.CancelButton.Func = function()
+		panel.Remove(inter.Save)
+		inter.Save = nil;
+	end
+	
+	inter.Save:SetLive(true);
+end
+	
+function Editor:SaveMap()
+	if( not self.MapCanvas ) then
+		return
+	end
+	self.Map.Canvas = self.MapCanvas:ExportData();
+	if( not love.filesystem.isDirectory("maps_save") ) then
+		love.filesystem.mkdir("maps_save");
+	end
+	if( not self.Map.Name or (self.Map.Name and self.Map.Name == "Untitiled") ) then
+		return self:SaveDialog();
+	end
+	love.filesystem.write("maps_save/"..self.Map.Name..".dmf", json.encode(self.Map));
+end
+
+function Editor:ClearMap()
+	if( self.MapCanvas ) then
+		self.MapCanvas.Blocks = {}
+		self.MapCanvas:CreateBlocks();
+	end
+end
+
+function Editor:LoadMap(strMap)
+	if( love.filesystem.isDirectory("maps_save") ) then
+		if( love.filesystem.exists("maps_save/"..strMap) ) then
+			local mapCan = json.decode(love.filesystem.read("maps_save/"..strMap));
+			Editor.MapCanvas = Map(0, 0);
+			Editor.MapCanvas:ImportData(mapCan.Canvas);
+		end
+	end
+end
+			
+		
+
+function Editor:LoadDialog()
+	local inter = self.Interfaces or {}
+	inter.Load = panel.CreateTitleFrame("Load Map", true, ScrW()/2 - 200, ScrH()/2 - 95, 400, 190);
+	
+	inter.ScrollLoad = panel.Create("ScrollFrame", inter.Load)
+	inter.ScrollLoad:SetPos(5, 30)
+	inter.ScrollLoad:SetSize(390, 130)
+	inter.ScrollLoad:EnableVerticalScrollbar(true);
+	
+	inter.LoadButton = panel.Create("Button", inter.Load)
+	inter.LoadButton:SetPos(5, 165)
+	inter.LoadButton:SetSize(193, 20)
+	inter.LoadButton:SetText("Load Map");
+	
+	inter.CancelButtonL = panel.Create("Button", inter.Load)
+	inter.CancelButtonL:SetPos(202, 165)
+	inter.CancelButtonL:SetSize(193, 20)
+	inter.CancelButtonL:SetText("Cancel Load");
+	inter.CancelButtonL.Func = function()
+		panel.Remove(inter.Load)
+		inter.Load = nil;
+	end
+	
+	inter.Load:SetLive(true);
+end
+
+function Editor:AddBarButtons()
+	AddButton("CloseEditor", "close", closeEditor, ScrW() - 20, 2);
+	AddButton("ToggleGrid", "grid", function() if( Editor.MapCanvas ) then Editor.MapCanvas:ToggleGrid() end end, 2, 2);
+	AddButton("NewMap", "newmap", function() Editor:CreateNewMap() end, 20, 2); 
+	AddButton("ClearMap", "clearmap", function() Editor:ClearMap() end, 40, 2);
+	AddButton("SaveMap", "save", function() Editor:SaveMap() end, 60, 2);
+	AddButton("LoadMap", "load", function() Editor:LoadDialog() end, 80, 2);--
+	AddButton("EntityLayer", "entity", function() Editor:EntityLayer() end, 100, 2);--
+	AddButton("EnvirontmentLayer", "environment", function() Editor:EnvironmentLayer() end, 120, 2);--
+	AddButton("CollisionLayer", "collision", function() Editor:CollisionLayer() end, 140, 2);--
+	AddButton("Redo", "rotpos", function() Editor:Redo() end, 160, 2);--
+	AddButton("Undo", "rotneg", function() Editor:Undo() end, 180, 2);--
+	AddButton("TextureSelector", "tilesel", function() Editor:CreateTextureSelector() end, 200, 2);--
+	AddButton("EntitySelector", "texsel", function() Editor:CreateEntitySelector() end, 220, 2);--
+	AddButton("OriginalLayout", "layout", function() --[[ origlayer]] end, 240, 2);--
+end
+
+
+function Editor:CreateGui()
+	local inter = self.Interfaces or {}
+	inter.MainBar = panel.Create("Frame")
+	inter.MainBar:SetPos(0, 0)
+	inter.MainBar:SetSize(ScrW(), 22)
+	
+	self:AddBarButtons()
+	
+	for k,v in pairs(inter.BarButtons) do
+		local newButton = panel.Create("ImageButton", inter.MainBar);
+		newButton:SetPos(v.PosX, v.PosY)
+		newButton:SetSize(18, 18)
+		newButton:SetImage(v.Image)
+		newButton:SetToolTip(v.ToolTip)
+		newButton.Func = function()
+			v:Func()
+		end
+	end
+	
+	
+	inter.MainBar:SetLive(true);
+end
+
+function Editor:GenerateTerrain(seed, x, y, size)
+	local mCanvas = Map(x, y);
+	self.Map.Blocks = {}
+	local size = size or 16;
+	mCanvas:SetBlockSize(size);
+	self.Interfaces.Prog = panel.Create("Frame")
+	self.Interfaces.Prog:SetPos(ScrW()/2 - 200, ScrH()/2 - 15);
+	self.Interfaces.Prog:SetSize(400, 30);
+	
+	self.Interfaces.BarP = panel.Create("Progress", self.Interfaces.Prog);
+	self.Interfaces.BarP:SetPos(5, 5)
+	self.Interfaces.BarP:SetSize(390, 20)
+	self.Interfaces.BarP:SetMax(x*y);
+	self.Interfaces.BarP:AddText("GeneratingTerrain");
+	
+	self.Interfaces.Prog:SetLive(true)
+	
+	local newBlock, noise
+	for i = 1+seed, y+seed do
+		for j = 1+seed, x+seed do
+			newBlock = Block(j - seed, i - seed, mCanvas);
+			newBlock:SetSize(size)
+			newBlock.defTexture = eng.Textures["textures/ground/grass_light"..size..".png"];
+			noise = simplex.Simplex2D(j/x, i/y);
+			if( noise < -0.45 ) then
+				newBlock.Color = Color(0, 0, 180, 255);
+			elseif( noise < -0.42 ) then
+				newBlock.defTexture = eng.Textures["textures/ground/sand".. size ..".png"];
+			elseif( noise > 0.2 ) then
+				newBlock.Color = Color(130, 130, 130, 255);
+			end
+			table.insert(mCanvas.Blocks, newBlock);
+			self.Interfaces.BarP:Add()
+		end
+	end
+	if( self.Interfaces.Prog ) then
+		panel.Remove(self.Interfaces.Prog)
+		self.Interfaces.Prog = nil;
+		self.Interfaces.BarP = nil;
+	end
+	Editor.MapCanvas = mCanvas;
+end
+clientcommand.Create("genterr", function(...)
+	Editor:GenerateTerrain( unpack({...}) );
+end)
+
+local function rop2(n)
+	if( n < 32 ) then
+		return ( 32 - n < 8 and 32 ) or 16;
+	else
+		return ( 64 - n < 16 and 64 ) or 32;
+	end
+end
+
+function Editor:CreateNewMap()
+	local selTex = eng.Textures["textures/ground/grass_light32.png"];
+	local selTexture = eng.Textures["textures/ground/grass_light16.png"];
+	local Inter = self.Interfaces or {};
+	Inter.NewMap = panel.CreateTitleFrame("Create New Map", true, ScrW()/2 - 150, ScrH()/2 - 75, 300, 150);
+	
+	Inter.NewMap.NameLabel = panel.Create("TextLabel", Inter.NewMap)
+	Inter.NewMap.NameLabel:SetPos(5, 35)
+	Inter.NewMap.NameLabel:SetSize(150, 25);
+	Inter.NewMap.NameLabel:SetText("Map Name: ");
+	
+	Inter.NewMap.TextEntry = panel.Create("TextEntry", Inter.NewMap)
+	Inter.NewMap.TextEntry:SetPos(5, 50)
+	Inter.NewMap.TextEntry:SetSize(150, 20);
+	
+	Inter.NewMap.TextureLabel = panel.Create("TextLabel", Inter.NewMap)
+	Inter.NewMap.TextureLabel:SetPos(5, 75);
+	Inter.NewMap.TextureLabel:SetSize(150, 20);
+	Inter.NewMap.TextureLabel:SetText("Default Texture");
+	
+	Inter.NewMap.TextureButtGrass = panel.Create("ImageButton", Inter.NewMap)
+	Inter.NewMap.TextureButtGrass:SetPos(5, 93);
+	Inter.NewMap.TextureButtGrass:SetSize(20, 20);
+	Inter.NewMap.TextureButtGrass:SetImage(eng.Textures["textures/ground/grass_light16.png"]);
+	Inter.NewMap.TextureButtGrass:SetToolTip("Grass");
+	Inter.NewMap.TextureButtGrass.Func = function(bt)
+		selTex = eng.Textures["textures/ground/grass_light32.png"];
+		selTexture = eng.Textures["textures/ground/grass_light"..rop2(Inter.NewMap.SliderS:GetValue())..".png"];
+	end
+	
+	Inter.NewMap.TextureButtDirt = panel.Create("ImageButton", Inter.NewMap)
+	Inter.NewMap.TextureButtDirt:SetPos(28, 93);
+	Inter.NewMap.TextureButtDirt:SetSize(20, 20);
+	Inter.NewMap.TextureButtDirt:SetImage(eng.Textures["textures/ground/dirt16.png"]);
+	Inter.NewMap.TextureButtDirt:SetToolTip("Dirt");
+	Inter.NewMap.TextureButtDirt.Func = function(bt)
+		selTex = eng.Textures["textures/ground/dirt32.png"];
+		selTexture = eng.Textures["textures/ground/dirt"..rop2(Inter.NewMap.SliderS:GetValue())..".png"];
+	end
+	
+	Inter.NewMap.TextureButtDirtL = panel.Create("ImageButton", Inter.NewMap)
+	Inter.NewMap.TextureButtDirtL:SetPos(51, 93);
+	Inter.NewMap.TextureButtDirtL:SetSize(20, 20);
+	Inter.NewMap.TextureButtDirtL:SetImage(eng.Textures["textures/ground/dirt_light16.png"]);
+	Inter.NewMap.TextureButtDirtL:SetToolTip("Dirt Light");
+	Inter.NewMap.TextureButtDirtL.Func = function(bt)
+		selTex = eng.Textures["textures/ground/dirt_light32.png"];
+		selTexture = eng.Textures["textures/ground/dirt_light"..rop2(Inter.NewMap.SliderS:GetValue())..".png"];
+	end
+	
+	Inter.NewMap.TextureButtSand = panel.Create("ImageButton", Inter.NewMap)
+	Inter.NewMap.TextureButtSand:SetPos(74, 93);
+	Inter.NewMap.TextureButtSand:SetSize(20, 20);
+	Inter.NewMap.TextureButtSand:SetImage(eng.Textures["textures/ground/sand16.png"]);
+	Inter.NewMap.TextureButtSand:SetToolTip("Sand");
+	Inter.NewMap.TextureButtSand.Func = function(bt)
+		selTex = eng.Textures["textures/ground/sand32.png"];
+		selTexture = eng.Textures["textures/ground/sand"..rop2(Inter.NewMap.SliderS:GetValue())..".png"];
+	end
+	
+	Inter.NewMap.TextureSelButt = panel.Create("ImageButton", Inter.NewMap);
+	Inter.NewMap.TextureSelButt:SetPos(97, 113 - 36)
+	Inter.NewMap.TextureSelButt:SetSize(36, 36);
+	Inter.NewMap.TextureSelButt:SetImage(selTex);
+	Inter.NewMap.TextureSelButt:SetToolTip("Selected");
+	Inter.NewMap.TextureSelButt.Think = function(bt)
+		bt:SetImage(selTex);
+	end
+	
+	Inter.NewMap.SliderXLab = panel.Create("TextLabel", Inter.NewMap)
+	Inter.NewMap.SliderXLab:SetPos(165, 35);
+	Inter.NewMap.SliderXLab:SetSize(115, 25);
+	Inter.NewMap.SliderXLab:SetText("Size X");
+	
+	Inter.NewMap.SliderX = panel.Create("Slider", Inter.NewMap)
+	Inter.NewMap.SliderX:SetPos(165, 50);
+	Inter.NewMap.SliderX:SetSize(115, 20);
+	Inter.NewMap.SliderX:SetMin(16);
+	Inter.NewMap.SliderX:SetMax(128);
+	Inter.NewMap.SliderX:MakeParts();
+	
+	Inter.NewMap.SliderYLab = panel.Create("TextLabel", Inter.NewMap)
+	Inter.NewMap.SliderYLab:SetPos(165, 75);
+	Inter.NewMap.SliderYLab:SetSize(115, 25);
+	Inter.NewMap.SliderYLab:SetText("Size Y");
+	
+	Inter.NewMap.SliderY = panel.Create("Slider", Inter.NewMap)
+	Inter.NewMap.SliderY:SetPos(165, 90);
+	Inter.NewMap.SliderY:SetSize(115, 20);
+	Inter.NewMap.SliderY:SetMin(16);
+	Inter.NewMap.SliderY:SetMax(128);
+	Inter.NewMap.SliderY:MakeParts();
+	
+	Inter.NewMap.SizeLab = panel.Create("TextLabel", Inter.NewMap)
+	Inter.NewMap.SizeLab:SetPos(165, 110);
+	Inter.NewMap.SizeLab:SetSize(115, 25);
+	Inter.NewMap.SizeLab:SetText("Block Size");
+	
+	Inter.NewMap.SliderS = panel.Create("Slider", Inter.NewMap)
+	Inter.NewMap.SliderS:SetPos(165, 125);
+	Inter.NewMap.SliderS:SetSize(115, 20);
+	Inter.NewMap.SliderS:SetMin(16);
+	Inter.NewMap.SliderS:SetMax(64);
+	Inter.NewMap.SliderS:MakeParts();
+	
+	Inter.NewMap.CreateB = panel.Create("Button", Inter.NewMap)
+	Inter.NewMap.CreateB:SetPos(5, 125);
+	Inter.NewMap.CreateB:SetSize(71, 20);
+	Inter.NewMap.CreateB:SetText("Create");
+	Inter.NewMap.CreateB.Func = function(btn)
+		if( Editor.MapCanvas and Editor.MapCanvas.Blocks[1] ) then
+			return Editor:SaveMap()
+		end
+		Editor.MapCanvas = Map(Inter.NewMap.SliderX:GetValue(), Inter.NewMap.SliderY:GetValue());
+		Editor.MapCanvas:SetBlockSize(rop2(Inter.NewMap.SliderS:GetValue()));
+		Editor.MapCanvas.DefaultTexture = selTexture;
+		Editor.MapCanvas:CreateBlocks()
+		panel.Remove(Inter.NewMap)
+		Inter.NewMap = nil;
+	end
+	
+	Inter.NewMap.CancelB = panel.Create("Button", Inter.NewMap)
+	Inter.NewMap.CancelB:SetPos(79, 125);
+	Inter.NewMap.CancelB:SetSize(71, 20);
+	Inter.NewMap.CancelB:SetText("Cancel");
+	Inter.NewMap.CancelB.Func = function(btn)
+		panel.Remove(Inter.NewMap);
+		Inter.NewMap = nil;
+	end
+	
+	Inter.NewMap:SetLive(true);
+end
+clientcommand.Create("newmap", function() Editor:CreateNewMap() end)
+
+local kd = gui.key.IsDown;
+local mX, mY = 0, 0;
+function Editor:Think()
+	if( not self.MapCanvas ) then return end;
+	mX, mY = gui.MousePos()
+	self.MouseOver = self.MapCanvas:GetNearestBlock(mX, mY);
+	if( kd("up") ) then
+		self.MapCanvas:Move(0, self.MapCanvas.BlockSize);
+	elseif( kd("right") ) then
+		self.MapCanvas:Move(-self.MapCanvas.BlockSize, 0);
+	elseif( kd("down") ) then
+		self.MapCanvas:Move(0, -self.MapCanvas.BlockSize);
+	elseif( kd("left") ) then
+		self.MapCanvas:Move(self.MapCanvas.BlockSize, 0);
+	end
+end
+
+function Editor:ScreenDraw()
+	if( not self.MapCanvas ) then return end;
+	Editor.MapCanvas:Paint();
+	if( self.MouseOver ) then
+		surface.SetColor(Color(100, 100, 255, 100));
+		surface.DrawRect(self.MapCanvas.Pos.x+(self.MapCanvas.BlockSize*self.MouseOver.Pos.x), self.MapCanvas.Pos.y+(self.MapCanvas.BlockSize*self.MouseOver.Pos.y), self.MapCanvas.BlockSize, self.MapCanvas.BlockSize);
+	end
+end
+
+function Editor:Shutdown()
+	self.MapCanvas = nil;
+	for k,v in pairs(self.Interfaces) do
+		if( getmetatable(self.Interfaces[k]) == _R.Panel ) then
+			panel.Remove(v);
+		end
+		self.Interfaces[k] = nil;
+	end
+	self.Interfaces = nil;
+	self.Map = nil;
+end
+
+return Editor;
+
+

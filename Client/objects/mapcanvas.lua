@@ -8,126 +8,161 @@
 _R.MapCanvas = {}
 _R.MapCanvas.__index = _R.MapCanvas;
 
-function MapCanvas(x, y, w, h)
-	local mCan = { x = x or 0, y = y or 0, w = w or 640, h = h or 640, Isometric = 64, UseGrid = true};
-	setmetatable(mCan, _R.MapCanvas);
-	return mCan;
+function Map(bx, by)
+	local map = {};
+	map.Pos = {x = 0, y = 0};
+	map.BlockSize = 16;
+	map.Size = {bX = bx, bY = by};
+	map.Blocks = {};
+	map.Grid = false;
+	map.DefaultTexture = eng.Textures["textures/ground/grass_light16.png"];
+	setmetatable(map, _R.MapCanvas);
+	return map;
+end
+
+function _R.MapCanvas:CreateBlocks(strMap)
+	local newBlock;
+	local newMap = self:LoadMap(strMap);
+	if( newMap.BlockSize ) then
+		self.Blocks = newMap.Blocks;
+		self.Size = newMap.Size;
+		self.BlockSize = newMap.BlockSize;
+	else
+		for j = 0, self.Size.bY-1 do
+			for i = 0, self.Size.bX-1 do
+				newBlock = Block(i, j, self);
+				newBlock:SetSize(self.BlockSize)
+				newBlock.defTexture = self.DefaultTexture;
+				table.insert(self.Blocks, newBlock);
+			end
+		end
+	end
+end
+
+function _R.MapCanvas:LoadMap(strMap)
+	local map = {}
+	if( strMap and love.filesystem.exists("maps_save/"..strMap) ) then
+		map = json.decode(love.filesystem.read("maps_save/"..strMap));
+	end
+	return map;
+end
+
+function _R.MapCanvas:ImportData(tbl)
+	self:SetSize(tbl.Size.x, tbl.Size.y);
+	self:SetBlockSize(tbl.BlockSize);
+	self.Blocks = {}
+	for i = 1, #tbl.Blocks do
+		local newBlock = Block( tbl.Blocks[i].Pos.x, tbl.Blocks[i].Pos.y, self );
+		newBlock.Collide = tbl.Blocks[i].Collide;
+		newBlock.Color = Color( tbl.Blocks[i].Color.r, tbl.Blocks[i].Color.g, tbl.Blocks[i].Color.b, tbl.Blocks[i].Color.a );
+		newBlock.Size = tbl.Blocks[i].Size;
+		newBlock.defTexture = eng.Textures[tbl.Blocks[i].defTexture];
+		self.Blocks[i] = newBlock;
+	end
+end
+
+local function getFromTexture(txt)
+	for k,v in pairs(eng.Textures) do
+		if( v == txt ) then
+			return k
+		end
+	end
+end
+
+function _R.MapCanvas:ExportData()
+	local CanvasTable = {}
+	CanvasTable.Size = { x = self.Size.bX, y = self.Size.By };
+	CanvasTable.BlockSize = self.BlockSize;
+	CanvasTable.Blocks = {};
+	CanvasTable.DefaultTexture = getFromTexture(self.DefaultTexture);
+	for i = 1, #self.Blocks do
+		CanvasTable.Blocks[i] = self.Blocks[i]:Export();
+	end
+	return CanvasTable;
+end
+
+function _R.MapCanvas:ToggleGrid()
+	self.Grid = not self.Grid;
+end
+
+function _R.MapCanvas:SetBlockSize(s)
+	if( not s == 16 or not s == 32 or not s == 64 ) then
+		self.BlockSize = 16;
+		return
+	end
+	self.BlockSize = tonumber(s) or 16;
+end
+
+function _R.MapCanvas:GetBlockSize()
+	return self.BlockSize;
+end
+
+function _R.MapCanvas:Move(x, y)
+	self.Pos.x = self.Pos.x + x;
+	self.Pos.y = self.Pos.y + y;
 end
 
 function _R.MapCanvas:SetPos(x, y)
-	self.x, self.y = math.min(x, 0), math.min(y, 0);
-end
-
-function _R.MapCanvas:Isometric32()
-	self.Isometric = 32;
-end
-
-function _R.MapCanvas:Isometric64()
-	self.Isometric = 64;
+	self.Pos.x, self.Pos.y = x, y;
 end
 
 function _R.MapCanvas:GetPos()
-	return self.x, self.y;
+	return self.Pos.x, self.Pos.y;
 end
 
-function _R.MapCanvas:SetSize(w, h)
-	self.w, self.h = w, h;
+function _R.MapCanvas:SetSize(bx, by)
+	self.Size.bX, self.Size.bY = bx, by;
 end
 
 function _R.MapCanvas:GetSize()
-	return self.w, self.h;
+	return self.Size.bX, self.Size.bY;
 end
 
-local sch, scw = ScrH(), ScrW();
-local mc_mPosX, mc_mPosY, Dist, mapX, mapY;
-local nPos, nR, xPosT = {}, 9999, 0;
-local evenLine = 0;
-function _R.MapCanvas:Think()
-	mc_mPosX, mc_mPosY = gui.MousePos();
-	mapX, mapY = self:GetPos();
-	nPos = {}
-	xPosT = 0;
-	nR = 9999;
-	for i = 1, self.h/16 do
-		evenLine = (xPosT % 2 == 0 and 0) or 32;
-		xPosT = xPosT + 1;
-		for j = 1, self.w/64 do
-			if( (mc_mPosX > mapX + ((j-1)*64)) and (mc_mPosY > mapY + ((i-1)*16)) ) then
-				Dist = math.Distance(mc_mPosX, mc_mPosY, mapX + ((j-1)*64)+32, mapY + ((i-1)*16)+16);
-				if( Dist < nR ) then
-					nR = Dist;
-					nPos = { x = mapX + ((j-1)*64)+evenLine, y = mapY + ((i-1)*16) };
-				end
-			end
-		end
-	end
-	self.WorldPos = nPos;
+function _R.MapCanvas:BlockVisible(blk)
+	local bPosx = self.Pos.x + (self.BlockSize*blk.Pos.x);
+	local bPosy = self.Pos.y + (self.BlockSize*blk.Pos.y);
+	return ( bPosx + self.BlockSize > 0 and bPosx < ScrW() and bPosy + self.BlockSize > 0 and bPosy < ScrH() );
 end
 
-local function getHighestLeft()
-	local topY = 9999;
-	local topX = 9999;
-	if( worldEditor and worldEditor.Selected ) then
-		for k,v in pairs(worldEditor.Selected) do
-			if(v.x < topX and v.y < topY) then
-				topY = v.y;
-				topX = v.x;
-			end
+local nearest;
+local dist;
+function _R.MapCanvas:GetNearestBlock(x, y)
+	nearest = 9999;
+	for k,v in pairs(self:GetAllVisible()) do
+		dist = math.Distance(x, y, self.Pos.x+(v.Pos.x*self.BlockSize)+self.BlockSize/2, self.Pos.y+(self.BlockSize*v.Pos.y)+self.BlockSize/2);
+		if( dist < nearest ) then
+			nearest = dist;
+			self.Nearest = v;
 		end
 	end
-	return topX, topY;
+	return self.Nearest;
 end
 
-local function getLowestLeft()
-	local lowY, lowX = 0, 0;
-	if( worldEditor and worldEditor.Selected ) then
-		for k,v in pairs(worldEditor.Selected) do
-			if( v.x+64 > lowX and v.y+32 > lowY ) then
-				lowX = v.x+64;
-				lowY = v.y+32;
-			end
+function _R.MapCanvas:GetAllVisible()
+	local tab = {}
+	for k,v in pairs(self.Blocks) do
+		if( self:BlockVisible(v) ) then
+			table.insert(tab, v);
 		end
 	end
-	return lowX, lowY;
-end
-
-function _R.MapCanvas:PaintSelector()
- 	if( nPos and nPos.x ) then
-		surface.SetColor(Color(100, 100, 200, 100));
-		surface.DrawRect(nPos.x, nPos.y, 64, 32);
-		if( worldEditor and (worldEditor.CurrentLayer == "Ground" or worldEditor.CurrentLayer == "Environment" )) then
-			local lastX, lastY = 0, 0;
-			for k,v in pairs(worldEditor.Selected) do
-				surface.SetColor(Color(255, 255, 255, 100));
-				love.graphics.drawq(v.Image, v.Quad, nPos.x + lastX, nPos.y + lastY);
-				if( worldEditor.Selected[k+1] ) then
-					lastX = lastX + ( worldEditor.Selected[k+1].x - v.x );
-					lastY = lastY + ( worldEditor.Selected[k+1].y - v.y );
-				end
-			end
-		end
-	end
+	return tab;
 end
 
 function _R.MapCanvas:Paint()
-	local mPosX, mPosY = self:GetPos();
-	local xPos, yPos = mPosX, mPosY;
-	local wSize, hSize = self:GetSize();
-	gui.ScissorStart(0, 0, ScrW(), ScrH());
-	
-	if( self.UseGrid ) then
-		for i = 1, hSize/16 do
-			xPos = (i % 2 == 0 and mPosX+32) or mPosX;
-			for j = 1, wSize/64 do
-				if( (j*64)+mPosX-64 < scw and (j*64)+mPosX+128 > 0 and (i*16)+mPosY-32 < sch and (i*16)+mPosY+64 > 0 ) then
-					surface.DrawGroundLayer(Color(100, 100, 100, 100), "line", xPos, yPos);
-					surface.DrawRealLayer(xPos, yPos);
-				end
-				xPos = xPos + 64;
-			end
-			yPos = yPos + 16;
+	for k,v in pairs(self:GetAllVisible()) do
+		v:Paint();
+		if( v:Solid() ) then
+			surface.SetColor(Color(255, 100, 100, 100));
+			surface.DrawRect(self.Pos.x+(self.BlockSize*v.Pos.x), self.Pos.y+(self.BlockSize*v.Pos.y), self.BlockSize, self.BlockSize);
 		end
 	end
-		
-	gui.ScissorEnd()
+	if( self.Grid ) then
+		surface.SetColor(0, 0, 0, 60);
+		for i = 1, ScrH()/self.BlockSize do
+			surface.DrawLine(0, i*self.BlockSize, ScrW(), i*self.BlockSize);
+		end
+		for i = 1, ScrW()/self.BlockSize do
+			surface.DrawLine(i*self.BlockSize, 0, i*self.BlockSize, ScrH());
+		end
+	end
 end

@@ -9,7 +9,7 @@ local PANEL = {}
 
 function PANEL:Init()
 	self.Items = {}
-	self.Color = Color(120, 120, 120, 255);
+	self.Color = Color(195, 195, 195, 220);
 	self.BorderColor = Color(170, 170, 170, 255);
 	self.Padding = 2;
 	self.Horizontal = false;
@@ -80,7 +80,7 @@ end
 
 function PANEL:AddItem(item)
 	item:SetParent(self);
-	item.RequireScissor = true;
+	item:SetScissor(true);
 	self.NextPos = self:CalculateItemPosY();	
 	item:SetPos(self.Padding, self.NextPos);
 	item.OldPosY = self.NextPos;
@@ -102,7 +102,7 @@ end
 function PANEL:MakeParts()
 
 	self.btnFrame = panel.Create("Frame", self)
-	self.btnFrame:SetColor(Color(33, 33, 33, 255));
+	self.btnFrame:SetColor(Color(170, 170, 170, 220));
 	self.btnFrame.BorderColor = Color(0, 0, 0, 0);
 	self.btnFrame:SetSize(18, self.Size.h - 2);
 	self.btnFrame:SetPos(self.Size.w - 19, 1);
