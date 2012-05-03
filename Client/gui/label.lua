@@ -10,8 +10,9 @@ local LABEL = {}
 function LABEL:Init()
 	self.Text = "";
 	self.MaxWidth = 999;
-	self.Color = Color(22,22,22,255);
+	self.TextColor = Color(22,22,22,255);
 	self.Aligns = "left";
+	self.Image = eng.Textures["textures/ui/folder.png"];
 end
 
 function LABEL:Align(t)
@@ -27,7 +28,7 @@ function LABEL:SetText(t)
 end
 
 function LABEL:SetColor(col)
-	self.Color = col or Color(255,255,255,255);
+	self.TextColor = col or Color(255,255,255,255);
 end
 
 function LABEL:SetFont(fnt)
@@ -36,9 +37,50 @@ end
 
 function LABEL:Paint()
 	surface.SetFont(self.Font);
-	surface.SetColor(self.Color.r, self.Color.g, self.Color.b, self.Color.a)
+	surface.SetColor(self.TextColor.r, self.TextColor.g, self.TextColor.b, self.TextColor.a)
 	surface.DrawText(self.Text, self.Pos.x, self.Pos.y, self.MaxWidth, self.Aligns)
 end
 
 panel.Register(LABEL, "TextLabel")
+
+local LINK = {}
+
+function LINK:Init()
+	self.TextColor = Color(22,22,22,255);
+	self.Text = "";
+	self.Image = eng.Textures["textures/ui/folder.png"];
+	self.Aligns = "left";
+	self.MaxWidth = 999;
+end
+
+function LINK:SetImage(img)
+	self.Image = eng.Textures["textures/ui/"..img..".png"] or eng.Textures["textures/ui/folder.png"];
+end
+
+function LINK:OnMouseEnter()
+	local col, bcol = self.Color, self.BorderColor;
+	self.Color = bcol;
+	self.BorderColor = col;
+end
+
+function LINK:OnMouseExit()
+	self:OnMouseEnter();
+end
+
+function LINK:SetText(txt)
+	self.Text = tostring(txt) or "";
+end
+
+function LINK:Paint()
+	surface.SetColor(self.BorderColor);
+	surface.DrawOutlinedRect(self.Pos.x, self.Pos.y, self.Size.w, self.Size.h);
+	surface.SetColor(self.Color);
+	surface.DrawRect(self.Pos.x+1, self.Pos.y+1, self.Size.w - 2, self.Size.h - 2);
+	surface.SetColor(255,255,255,255)
+	surface.DrawImage(self.Image, self.Pos.x + 3, self.Pos.y+(self.Size.h/2 - 8));
+	surface.SetColor(self.TextColor);
+	surface.DrawText(self.Text, self.Pos.x + 22, self.Pos.y+(self.Size.h/2 - 5), 30, self.Aligns); 
+end
+
+panel.Register(LINK, "Link");
 	

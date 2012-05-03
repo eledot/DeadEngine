@@ -14,6 +14,8 @@ function Editor:Init()
 	Editor.Interfaces = {}
 	Editor.Interfaces.BarButtons = {}
 	
+	Editor.CurrentLayer = "GroundLayer";
+	
 	Editor.Map = {}
 	
 	Editor.Defaults = {}
@@ -94,7 +96,7 @@ function Editor:SaveMap()
 	if( not love.filesystem.isDirectory("maps_save") ) then
 		love.filesystem.mkdir("maps_save");
 	end
-	if( not self.Map.Name or (self.Map.Name and self.Map.Name == "Untitiled") ) then
+	if( not self.Map.Name or (self.Map.Name and self.Map.Name == "Untitled") ) then
 		return self:SaveDialog();
 	end
 	love.filesystem.write("maps_save/"..self.Map.Name..".dmf", json.encode(self.Map));
@@ -113,6 +115,7 @@ function Editor:LoadMap(strMap)
 			local mapCan = json.decode(love.filesystem.read("maps_save/"..strMap));
 			Editor.MapCanvas = Map(0, 0);
 			Editor.MapCanvas:ImportData(mapCan.Canvas);
+			Editor.Map.Name = mapCan.Name;
 		end
 	end
 end
@@ -127,11 +130,21 @@ function Editor:LoadDialog()
 	inter.ScrollLoad:SetPos(5, 30)
 	inter.ScrollLoad:SetSize(390, 130)
 	inter.ScrollLoad:EnableVerticalScrollbar(true);
+	inter.ScrollLoad.Padding = 4;
 	
 	inter.LoadButton = panel.Create("Button", inter.Load)
 	inter.LoadButton:SetPos(5, 165)
 	inter.LoadButton:SetSize(193, 20)
 	inter.LoadButton:SetText("Load Map");
+	inter.LoadButton.Func = function()
+		if( inter.Load.Selected ) then
+			self:LoadMap(inter.Load.Selected.Text);
+			panel.Remove(inter.Load)
+			inter.Load = nil;
+		else
+			panel.MessageBox("Load Error", "You have not selected a map.");
+		end
+	end
 	
 	inter.CancelButtonL = panel.Create("Button", inter.Load)
 	inter.CancelButtonL:SetPos(202, 165)
@@ -140,6 +153,29 @@ function Editor:LoadDialog()
 	inter.CancelButtonL.Func = function()
 		panel.Remove(inter.Load)
 		inter.Load = nil;
+	end
+	
+	local mapTable = FileEnumerateRecursive("maps_save");
+	for k,v in pairs(mapTable) do
+		local newLink = panel.Create("Link")
+		newLink:SetSize(380, 20);
+		newLink:SetText(string.sub(v, 11));
+		newLink:SetImage("folder");
+		function newLink:OnMouseReleased()
+			if( inter.Load.Selected == self ) then
+				inter.Load.Selected = nil;
+				return;
+			end
+			inter.Load.Selected = self;
+		end
+		function newLink:Think()
+			if( inter.Load.Selected == self ) then
+				self.TextColor = Color(200, 255, 200, 255);
+			else
+				self.TextColor = Color(22, 22, 22, 255);
+			end
+		end
+		inter.ScrollLoad:AddItem(newLink);
 	end
 	
 	inter.Load:SetLive(true);
@@ -151,17 +187,112 @@ function Editor:AddBarButtons()
 	AddButton("NewMap", "newmap", function() Editor:CreateNewMap() end, 20, 2); 
 	AddButton("ClearMap", "clearmap", function() Editor:ClearMap() end, 40, 2);
 	AddButton("SaveMap", "save", function() Editor:SaveMap() end, 60, 2);
-	AddButton("LoadMap", "load", function() Editor:LoadDialog() end, 80, 2);--
-	AddButton("EntityLayer", "entity", function() Editor:EntityLayer() end, 100, 2);--
-	AddButton("EnvirontmentLayer", "environment", function() Editor:EnvironmentLayer() end, 120, 2);--
-	AddButton("CollisionLayer", "collision", function() Editor:CollisionLayer() end, 140, 2);--
-	AddButton("Redo", "rotpos", function() Editor:Redo() end, 160, 2);--
-	AddButton("Undo", "rotneg", function() Editor:Undo() end, 180, 2);--
-	AddButton("TextureSelector", "tilesel", function() Editor:CreateTextureSelector() end, 200, 2);--
-	AddButton("EntitySelector", "texsel", function() Editor:CreateEntitySelector() end, 220, 2);--
-	AddButton("OriginalLayout", "layout", function() --[[ origlayer]] end, 240, 2);--
+	AddButton("LoadMap", "load", function() Editor:LoadDialog() end, 80, 2);
+	AddButton("GroundLayer", "ground", function() Editor.CurrentLayer = "GroundLayer" end, 100, 2);
+	AddButton("EntityLayer", "entity", function() Editor.CurrentLayer = "EntityLayer" end, 120, 2);
+	AddButton("EnvirontmentLayer", "environment", function() Editor.CurrentLayer = "EnvironmentLayer" end, 140, 2);
+	AddButton("CollisionLayer", "collision", function() Editor.CurrentLayer = "CollisionLayer" end, 160, 2);
+	AddButton("Redo", "rotpos", function() Editor:Redo() end, 180, 2);--
+	AddButton("Undo", "rotneg", function() Editor:Undo() end, 200, 2);--
+	AddButton("TextureSelector", "tilesel", function() Editor:CreateTextureSelector() end, 220, 2);--
+	AddButton("EntitySelector", "texsel", function() Editor:CreateEntitySelector() end, 240, 2);--
+	AddButton("OriginalLayout", "layout", function() --[[ origlayer]] end, 260, 2);--
+	AddButton("GenerateTerrain", "generate", function() Editor:Generator() end, 280, 2);
+end
+local function rop2(n)
+	if( n < 32 ) then
+		return ( 32 - n < 8 and 32 ) or 16;
+	else
+		return ( 64 - n < 16 and 64 ) or 32;
+	end
 end
 
+function Editor:Generator()
+	local Inter = self.Interfaces or {}
+	
+	Inter.Generate = panel.CreateTitleFrame("Terrain Generator", true, (ScrW()/2 - 150), ScrH()/2 - 75, 300, 150);
+	
+	Inter.Generate.NameLabel = panel.Create("TextLabel", Inter.Generate)
+	Inter.Generate.NameLabel:SetPos(5, 35)
+	Inter.Generate.NameLabel:SetSize(150, 25);
+	Inter.Generate.NameLabel:SetText("Map Name: ");
+	
+	Inter.Generate.TextEntry = panel.Create("TextEntry", Inter.Generate)
+	Inter.Generate.TextEntry:SetPos(5, 50)
+	Inter.Generate.TextEntry:SetSize(150, 20);
+	
+	Inter.Generate.SeedLabel = panel.Create("TextLabel", Inter.Generate)
+	Inter.Generate.SeedLabel:SetPos(5, 75)
+	Inter.Generate.SeedLabel:SetSize(150, 25);
+	Inter.Generate.SeedLabel:SetText("Seed (Numbers Only): ");
+	
+	Inter.Generate.TextEntryS = panel.Create("TextEntry", Inter.Generate)
+	Inter.Generate.TextEntryS:SetPos(5, 90)
+	Inter.Generate.TextEntryS:SetSize(150, 20);
+	Inter.Generate.TextEntryS:NumberOnly(true)
+	
+	Inter.Generate.SliderXLab = panel.Create("TextLabel", Inter.Generate)
+	Inter.Generate.SliderXLab:SetPos(165, 35);
+	Inter.Generate.SliderXLab:SetSize(115, 25);
+	Inter.Generate.SliderXLab:SetText("Size X");
+	
+	Inter.Generate.SliderX = panel.Create("Slider", Inter.Generate)
+	Inter.Generate.SliderX:SetPos(165, 50);
+	Inter.Generate.SliderX:SetSize(115, 20);
+	Inter.Generate.SliderX:SetMin(16);
+	Inter.Generate.SliderX:SetMax(256);
+	Inter.Generate.SliderX:MakeParts();
+	
+	Inter.Generate.SliderYLab = panel.Create("TextLabel", Inter.Generate)
+	Inter.Generate.SliderYLab:SetPos(165, 75);
+	Inter.Generate.SliderYLab:SetSize(115, 25);
+	Inter.Generate.SliderYLab:SetText("Size Y");
+	
+	Inter.Generate.SliderY = panel.Create("Slider", Inter.Generate)
+	Inter.Generate.SliderY:SetPos(165, 90);
+	Inter.Generate.SliderY:SetSize(115, 20);
+	Inter.Generate.SliderY:SetMin(16);
+	Inter.Generate.SliderY:SetMax(256);
+	Inter.Generate.SliderY:MakeParts();
+	
+	Inter.Generate.SizeLab = panel.Create("TextLabel", Inter.Generate)
+	Inter.Generate.SizeLab:SetPos(165, 110);
+	Inter.Generate.SizeLab:SetSize(115, 25);
+	Inter.Generate.SizeLab:SetText("Block Size");
+	
+	Inter.Generate.SliderS = panel.Create("Slider", Inter.Generate)
+	Inter.Generate.SliderS:SetPos(165, 125);
+	Inter.Generate.SliderS:SetSize(115, 20);
+	Inter.Generate.SliderS:SetMin(16);
+	Inter.Generate.SliderS:SetMax(64);
+	Inter.Generate.SliderS:MakeParts();
+	
+	Inter.Generate.CreateB = panel.Create("Button", Inter.Generate)
+	Inter.Generate.CreateB:SetPos(5, 125);
+	Inter.Generate.CreateB:SetSize(71, 20);
+	Inter.Generate.CreateB:SetText("Create");
+	Inter.Generate.CreateB.Func = function(btn)
+		self:GenerateTerrain(
+			math.Clamp(tonumber(Inter.Generate.TextEntryS:GetValue()) or 0, 0, 400000000),
+			Inter.Generate.SliderX:GetValue(),
+			Inter.Generate.SliderY:GetValue(),
+			rop2(Inter.Generate.SliderS:GetValue()));
+		self.Map.Name = tostring(Inter.Generate.TextEntry:GetValue()) or "Untitled";
+		panel.Remove(Inter.Generate)
+		Inter.Generate = nil;
+	end
+	
+	Inter.Generate.CancelB = panel.Create("Button", Inter.Generate)
+	Inter.Generate.CancelB:SetPos(79, 125);
+	Inter.Generate.CancelB:SetSize(71, 20);
+	Inter.Generate.CancelB:SetText("Cancel");
+	Inter.Generate.CancelB.Func = function(btn)
+		panel.Remove(Inter.Generate);
+		Inter.Generate = nil;
+	end
+	
+	Inter.Generate:SetLive(true)
+end
 
 function Editor:CreateGui()
 	local inter = self.Interfaces or {}
@@ -186,59 +317,62 @@ function Editor:CreateGui()
 	inter.MainBar:SetLive(true);
 end
 
-function Editor:GenerateTerrain(seed, x, y, size)
-	local mCanvas = Map(x, y);
-	self.Map.Blocks = {}
-	local size = size or 16;
-	mCanvas:SetBlockSize(size);
-	self.Interfaces.Prog = panel.Create("Frame")
-	self.Interfaces.Prog:SetPos(ScrW()/2 - 200, ScrH()/2 - 15);
-	self.Interfaces.Prog:SetSize(400, 30);
-	
-	self.Interfaces.BarP = panel.Create("Progress", self.Interfaces.Prog);
-	self.Interfaces.BarP:SetPos(5, 5)
-	self.Interfaces.BarP:SetSize(390, 20)
-	self.Interfaces.BarP:SetMax(x*y);
-	self.Interfaces.BarP:AddText("GeneratingTerrain");
-	
-	self.Interfaces.Prog:SetLive(true)
-	
-	local newBlock, noise
+local function CoroutineTerrain(seed, x, y, map, bar)
+	if( not ( seed or x or y or map ) ) then
+		return
+	end;
+	local newBlock, noise;
+	local size = map:GetBlockSize();
 	for i = 1+seed, y+seed do
 		for j = 1+seed, x+seed do
-			newBlock = Block(j - seed, i - seed, mCanvas);
-			newBlock:SetSize(size)
+			newBlock = Block(j - seed, i - seed, map);
+			newBlock:SetSize(size);
 			newBlock.defTexture = eng.Textures["textures/ground/grass_light"..size..".png"];
 			noise = simplex.Simplex2D(j/x, i/y);
-			if( noise < -0.45 ) then
-				newBlock.Color = Color(0, 0, 180, 255);
-			elseif( noise < -0.42 ) then
-				newBlock.defTexture = eng.Textures["textures/ground/sand".. size ..".png"];
-			elseif( noise > 0.2 ) then
-				newBlock.Color = Color(130, 130, 130, 255);
+			--if( noise < -0.45 ) then
+			--	newBlock.Color = Color(0, 0, 180, 255);
+			--elseif( noise < -0.42 ) then
+			--	newBlock.defTexture = eng.Textures["textures/ground/sand".. size ..".png"];
+			--elseif( noise > 0.2 ) then
+			--	newBlock.Color = Color(130, 130, 130, 255);
+			--end
+			if( noise < 0 ) then
+				noise = math.floor(math.abs(noise)*255);
+			else
+				noise = math.floor(noise * 255);
 			end
-			table.insert(mCanvas.Blocks, newBlock);
-			self.Interfaces.BarP:Add()
+			newBlock.Color = Color(math.Clamp(noise, 0, 255), math.Clamp(noise, 0, 255), math.Clamp(noise, 0, 255), 255);
+			if( bar ) then
+				bar:Add();
+			end
+			table.insert(map.Blocks, newBlock);
 		end
 	end
-	if( self.Interfaces.Prog ) then
-		panel.Remove(self.Interfaces.Prog)
-		self.Interfaces.Prog = nil;
-		self.Interfaces.BarP = nil;
-	end
+	return map;
+end
+
+function Editor:GenerateTerrain(seed, x, y, size)
+	local mCanvas = Map(x, y);
+	self.Map.Name = self.Defaults.Name;
+	self.Map.Blocks = {}
+	local size = size or 16;
+	local err, mcan
+	mCanvas:SetBlockSize(size);
+	self.Interfaces.Progress = panel.Create("Progress")
+	self.Interfaces.Progress:SetPos(ScrW()/2 - 200, ScrH()/2-10);
+	self.Interfaces.Progress:SetSize(400, 20)
+	self.Interfaces.Progress:SetMax(x*y);
+	self.Interfaces.Progress:AddText("GeneratingTerrain")
+	self.Interfaces.Progress:SetLive(true);
+	local cor = coroutine.create(CoroutineTerrain);
+	coroutine.resume(cor, seed, x, y, mCanvas, self.Interfaces.Progress);
 	Editor.MapCanvas = mCanvas;
+	panel.Remove(self.Interfaces.Progress)
+	self.Interfaces.Progress = nil;
 end
 clientcommand.Create("genterr", function(...)
 	Editor:GenerateTerrain( unpack({...}) );
 end)
-
-local function rop2(n)
-	if( n < 32 ) then
-		return ( 32 - n < 8 and 32 ) or 16;
-	else
-		return ( 64 - n < 16 and 64 ) or 32;
-	end
-end
 
 function Editor:CreateNewMap()
 	local selTex = eng.Textures["textures/ground/grass_light32.png"];
@@ -318,7 +452,7 @@ function Editor:CreateNewMap()
 	Inter.NewMap.SliderX:SetPos(165, 50);
 	Inter.NewMap.SliderX:SetSize(115, 20);
 	Inter.NewMap.SliderX:SetMin(16);
-	Inter.NewMap.SliderX:SetMax(128);
+	Inter.NewMap.SliderX:SetMax(256);
 	Inter.NewMap.SliderX:MakeParts();
 	
 	Inter.NewMap.SliderYLab = panel.Create("TextLabel", Inter.NewMap)
@@ -330,7 +464,7 @@ function Editor:CreateNewMap()
 	Inter.NewMap.SliderY:SetPos(165, 90);
 	Inter.NewMap.SliderY:SetSize(115, 20);
 	Inter.NewMap.SliderY:SetMin(16);
-	Inter.NewMap.SliderY:SetMax(128);
+	Inter.NewMap.SliderY:SetMax(256);
 	Inter.NewMap.SliderY:MakeParts();
 	
 	Inter.NewMap.SizeLab = panel.Create("TextLabel", Inter.NewMap)

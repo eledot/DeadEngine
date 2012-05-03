@@ -88,4 +88,23 @@ end
 hook.Add("Think", "_Engine.PanelThink", panelThink);
 hook.Add("__EngineDraw", "_Engine.PanelPaint", panelPaint);
 
+function panel.MessageBox(mess, text)
+	local tW, tH = surface.GetFont():getWidth(text), surface.GetFont():getHeight();
+	local mBoc = panel.CreateTitleFrame(mess, true, ScrW()/2 - ((tW+30)/2), ScrH()/2 - ((tW+10)/2), tW + 30, 60 + tH);
+	
+	mBoc.Text = panel.Create("TextLabel", mBoc);
+	mBoc.Text:SetText(text)
+	mBoc.Text:SetPos(15, 30);
+	mBoc.Text:SetSize(200, 20)
+	
+	mBoc.Ok = panel.Create("Button", mBoc)
+	mBoc.Ok:SetPos(5, 50)
+	mBoc.Ok:SetText("Okay");
+	mBoc.Ok:SetSize(tW+20, 20);
+	mBoc.Ok.Func = function()
+		panel.Remove(mBoc);
+	end
+	mBoc:SetLive(true)
+end
+
 return panel;

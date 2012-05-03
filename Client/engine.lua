@@ -78,23 +78,25 @@ function eng.KeyPressed(key, uni)
 			eng.TextFocused:OnTextChanged();
 			return
 		end
-		for k,v in pairs(eng.Characters) do
-			if( key == v ) then
-				if( eng.Shift ) then
-					eng.TextFocused.Text = eng.TextFocused.Text..string.upper(key);
-					eng.TextFocused.Count = eng.TextFocused.Count + 1;
-					eng.TextFocused:OnTextChanged();
-				else
-					eng.TextFocused.Text = eng.TextFocused.Text..string.lower(key);
-					eng.TextFocused.Count = eng.TextFocused.Count + 1;
-					eng.TextFocused:OnTextChanged();
+		if( not eng.TextFocused.Number ) then
+			for k,v in pairs(eng.Characters) do
+				if( key == v ) then
+					if( eng.Shift ) then
+						eng.TextFocused.Text = eng.TextFocused.Text..string.upper(key);
+						eng.TextFocused.Count = eng.TextFocused.Count + 1;
+						eng.TextFocused:OnTextChanged();
+					else
+						eng.TextFocused.Text = eng.TextFocused.Text..string.lower(key);
+						eng.TextFocused.Count = eng.TextFocused.Count + 1;
+						eng.TextFocused:OnTextChanged();
+					end
+					return
 				end
-				return
 			end
 		end
 		for k,v in pairs(eng.SpecialChars) do
 			if( key == k ) then
-				if( eng.Shift ) then
+				if( eng.Shift and not eng.TextFocused.Number ) then
 					eng.TextFocused.Text = eng.TextFocused.Text..v;
 					eng.TextFocused.Count = eng.TextFocused.Count + 1;
 					eng.TextFocused:OnTextChanged();

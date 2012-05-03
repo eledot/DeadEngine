@@ -107,17 +107,19 @@ function PANEL:MakeParts()
 	self.btnFrame:SetSize(18, self.Size.h - 2);
 	self.btnFrame:SetPos(self.Size.w - 19, 1);
 	
-	self.btnUp = panel.Create("Button", self.btnFrame)
+	self.btnUp = panel.Create("ImageButton", self.btnFrame)
 	self.btnUp:SetPos(1, 0);
 	self.btnUp:SetSize(16, 16);
+	self.btnUp:SetImage(eng.Textures["textures/ui/arrow_up.png"])
 	self.btnUp.Func = function(btn)
 		self.btnGrip:SetPos(1, math.Clamp(self.btnGrip.ActualPos.y - self:ScrollBarMove(), self.ScrollPos, self.ScrollPos + self:TrackDistance())) ;
 		self:Scroll()
 	end
 	
-	self.btnDown = panel.Create("Button", self.btnFrame)
+	self.btnDown = panel.Create("ImageButton", self.btnFrame)
 	self.btnDown:SetPos(1, self.btnFrame.Size.h - 16);
 	self.btnDown:SetSize(16, 16);
+	self.btnDown:SetImage(eng.Textures["textures/ui/arrow_down.png"])
 	self.btnDown.Func = function(btn)
 		self.btnGrip:SetPos(1, math.Clamp(self.btnGrip.ActualPos.y + self:ScrollBarMove(), self.ScrollPos, self.ScrollPos + self:TrackDistance()));
 		self:Scroll()

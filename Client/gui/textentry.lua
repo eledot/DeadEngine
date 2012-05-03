@@ -18,6 +18,11 @@ function TEXT:Init()
 	self.Text = "";
 	self.EntryBox = 1;
 	self.Font = "fonts/input.TTF";
+	self.Number = false;
+end
+
+function TEXT:NumberOnly(b)
+	self.Number = b or false;
 end
 
 function TEXT:SetMax(n)
