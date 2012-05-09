@@ -107,4 +107,65 @@ function panel.MessageBox(mess, text)
 	mBoc:SetLive(true)
 end
 
+function panel.FileViewer(title, directory, func)
+
+	local view = panel.CreateTitleFrame(title, true, ScrW()/2 - 200, ScrH()/2 - 95, 400, 190);
+	
+	view.Scroll = panel.Create("ScrollFrame", view);
+	view.Scroll:SetPos(5, 30)
+	view.Scroll:SetSize(390, 130);
+	view.Scroll:EnableVerticalScrollbar(true)
+	view.Scroll.Padding = 4;
+	
+	view.LoadButton = panel.Create("Button", view)
+	view.LoadButton:SetPos(5, 165)
+	view.LoadButton:SetSize(193, 20)
+	view.LoadButton:SetText("Load");
+	view.LoadButton.Func = function()
+		if( view.Selected ) then
+			func(view.Selected)
+			panel.Remove(view)
+		else
+			panel.MessageBox("Load Error", "You have not selected a file.");
+		end
+	end
+	
+	view.CancelButtonL = panel.Create("Button", view)
+	view.CancelButtonL:SetPos(202, 165)
+	view.CancelButtonL:SetSize(193, 20)
+	view.CancelButtonL:SetText("Cancel");
+	view.CancelButtonL.Func = function()
+		panel.Remove(view)
+	end
+	
+	local fTable = FileEnumerateRecursive(directory);
+	for k,v in pairs(fTable) do
+		local newLink = panel.Create("Link")
+		newLink:SetSize(380, 20);
+		newLink:SetText(v);
+		newLink:SetImage("folder");
+		function newLink:OnMouseReleased()
+			if( gui.IsHovering(view.Scroll.btnFrame) or view.Scroll.btnGrip.Clicked ) then
+				return
+			end
+			if( view.Selected == self ) then
+				view.Selected = nil;
+				return;
+			end
+			view.Selected = self;
+		end
+		function newLink:Think()
+			if( view.Selected == self ) then
+				self.TextColor = Color(200, 255, 200, 255);
+			else
+				self.TextColor = Color(22, 22, 22, 255);
+			end
+		end
+		view.Scroll:AddItem(newLink);
+	end
+	
+	view:SetLive(true);
+	
+end
+
 return panel;

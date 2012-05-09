@@ -38,3 +38,22 @@ local function toggleEditorGrid()
 	end
 end
 clientcommand.Create("editor_grid", toggleEditorGrid);
+
+local function openMap(...)
+	local Pass = {...}
+	g_CurrentMap = CreateMap(Pass[1]);
+end
+clientcommand.Create("map", openMap);
+
+local function pushStack(...)
+	local Pass = {...}
+	if( Pass[1] ) then
+		StateManager:Push(Pass[1]);
+	end
+end
+clientcommand.Create("push", pushStack);
+
+local function popStack()
+	StateManager:Pop();
+end
+clientcommand.Create("pop", popStack);

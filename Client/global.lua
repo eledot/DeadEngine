@@ -20,6 +20,16 @@ g_ClientCommands = {}
 ScrW = love.graphics.getWidth;
 ScrH = love.graphics.getHeight;
 
+function GetMap()
+	if( g_CurrentMap ) then
+		return g_CurrentMap;
+	end
+end
+
+function GetMapName()
+	return GetMap() and GetMap().Name or nil;
+end
+
 function CurTime()
 	return os.time() - g_Time;
 end

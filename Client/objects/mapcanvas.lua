@@ -29,11 +29,13 @@ function _R.MapCanvas:CreateBlocks(strMap)
 		self.BlockSize = newMap.BlockSize;
 	else
 		for j = 0, self.Size.bY-1 do
+			self.Blocks[j] = {}
 			for i = 0, self.Size.bX-1 do
-				newBlock = Block(i, j, self);
+				newBlock = Block(j, i, self);
 				newBlock:SetSize(self.BlockSize)
 				newBlock.defTexture = self.DefaultTexture;
-				table.insert(self.Blocks, newBlock);
+				self.Blocks[j][i] = newBlock;
+			--	table.insert(self.Blocks, newBlock);
 			end
 		end
 	end
@@ -51,13 +53,18 @@ function _R.MapCanvas:ImportData(tbl)
 	self:SetSize(tbl.Size.x, tbl.Size.y);
 	self:SetBlockSize(tbl.BlockSize);
 	self.Blocks = {}
-	for i = 1, #tbl.Blocks do
-		local newBlock = Block( tbl.Blocks[i].Pos.x, tbl.Blocks[i].Pos.y, self );
-		newBlock.Collide = tbl.Blocks[i].Collide;
-		newBlock.Color = Color( tbl.Blocks[i].Color.r, tbl.Blocks[i].Color.g, tbl.Blocks[i].Color.b, tbl.Blocks[i].Color.a );
-		newBlock.Size = tbl.Blocks[i].Size;
-		newBlock.defTexture = eng.Textures[tbl.Blocks[i].defTexture];
-		self.Blocks[i] = newBlock;
+	local blk
+	for k, v in pairs(tbl.Blocks) do
+		self.Blocks[tonumber(k)] = {}
+		for i, j in pairs(v) do
+			blk = Block(tonumber(k), tonumber(i), self)
+			blk.Collide = j.Collide;
+			blk.Color = Color(j.Color.r, j.Color.g, j.Color.b, j.Color.a);
+			blk.Size = j.Size;
+			blk.defTexture = eng.Textures[j.defTexture];
+			
+			self.Blocks[tonumber(k)][tonumber(i)] = blk;
+		end
 	end
 end
 
@@ -71,14 +78,29 @@ end
 
 function _R.MapCanvas:ExportData()
 	local CanvasTable = {}
-	CanvasTable.Size = { x = self.Size.bX, y = self.Size.By };
+	CanvasTable.Size = { x = self.Size.bX, y = self.Size.bY };
 	CanvasTable.BlockSize = self.BlockSize;
 	CanvasTable.Blocks = {};
 	CanvasTable.DefaultTexture = getFromTexture(self.DefaultTexture);
-	for i = 1, #self.Blocks do
-		CanvasTable.Blocks[i] = self.Blocks[i]:Export();
+	for x = 0, #self.Blocks-1 do
+		if( self.Blocks[x] ) then
+			CanvasTable.Blocks[x] = {};
+			for y = 0, #self.Blocks[x]-1 do
+				if( self.Blocks[x][y] ) then
+					CanvasTable.Blocks[x][y] = self.Blocks[x][y]:Export();
+				end
+			end
+		end
 	end
+	--for i = 1, #self.Blocks do
+	--	CanvasTable.Blocks[i] = self.Blocks[i]:Export();
+	--end
 	return CanvasTable;
+end
+
+function _R.MapCanvas:AddBlock(x, y, block)
+	self.Blocks[x] = self.Blocks[x] or {};
+	self.Blocks[x][y] = block;
 end
 
 function _R.MapCanvas:ToggleGrid()
@@ -98,8 +120,12 @@ function _R.MapCanvas:GetBlockSize()
 end
 
 function _R.MapCanvas:Move(x, y)
-	self.Pos.x = self.Pos.x + x;
-	self.Pos.y = self.Pos.y + y;
+	local ScreenWide = (self.Size.bX*self.BlockSize);
+	local ScreenTall = (self.Size.bY*self.BlockSize);
+	ScreenWide = ScreenWide < ScrW() and ScreenWide or ScrW();
+	ScreenTall = ScreenTall < ScrH() and ScreenTall or ScrH();
+	self.Pos.x = math.Clamp(self.Pos.x + x, -(self.Size.bX*self.BlockSize)+ScreenWide, 0);
+	self.Pos.y = math.Clamp(self.Pos.y + y, -(self.Size.bY*self.BlockSize)+ScreenTall, 0);
 end
 
 function _R.MapCanvas:SetPos(x, y)
@@ -126,34 +152,36 @@ end
 
 local nearest;
 local dist;
-function _R.MapCanvas:GetNearestBlock(x, y)
+function _R.MapCanvas:GetNearestBlock(xx, yy)
 	nearest = 9999;
-	for k,v in pairs(self:GetAllVisible()) do
-		dist = math.Distance(x, y, self.Pos.x+(v.Pos.x*self.BlockSize)+self.BlockSize/2, self.Pos.y+(self.BlockSize*v.Pos.y)+self.BlockSize/2);
-		if( dist < nearest ) then
-			nearest = dist;
-			self.Nearest = v;
+	for x = math.floor(math.abs(self.Pos.x)/self.BlockSize), math.floor((math.abs(self.Pos.x)+ScrW())/self.BlockSize)+1 do
+		if( self.Blocks[x] ) then
+			for y = math.floor(math.abs(self.Pos.y)/self.BlockSize), math.floor((math.abs(self.Pos.y)+ScrH())/self.BlockSize)+1 do
+				if( self.Blocks[x][y] ) then
+					dist = math.Distance(math.abs(self.Pos.x)+xx, math.abs(self.Pos.y)+yy, (x*self.BlockSize)+self.BlockSize/2, (self.BlockSize*y)+self.BlockSize/2);
+					if( dist < nearest ) then
+						nearest = dist;
+						self.Nearest = self.Blocks[x][y];
+					end
+				end
+			end
 		end
 	end
 	return self.Nearest;
 end
 
-function _R.MapCanvas:GetAllVisible()
-	local tab = {}
-	for k,v in pairs(self.Blocks) do
-		if( self:BlockVisible(v) ) then
-			table.insert(tab, v);
-		end
-	end
-	return tab;
-end
-
 function _R.MapCanvas:Paint()
-	for k,v in pairs(self:GetAllVisible()) do
-		v:Paint();
-		if( v:Solid() ) then
-			surface.SetColor(Color(255, 100, 100, 100));
-			surface.DrawRect(self.Pos.x+(self.BlockSize*v.Pos.x), self.Pos.y+(self.BlockSize*v.Pos.y), self.BlockSize, self.BlockSize);
+	for x = math.floor(math.abs(self.Pos.x)/self.BlockSize), math.floor((math.abs(self.Pos.x)+ScrW())/self.BlockSize)+1 do
+		if( self.Blocks[x] ) then
+			for y = math.floor(math.abs(self.Pos.y)/self.BlockSize), math.floor((math.abs(self.Pos.y)+ScrH())/self.BlockSize)+1 do
+				if( self.Blocks[x][y] ) then
+					self.Blocks[x][y]:Paint();
+					if( self.Blocks[x][y]:Solid() ) then
+						surface.SetColor(255, 100, 100, 100);
+						surface.DrawRect(self.Pos.x+(self.BlockSize*x), self.Pos.y+(self.BlockSize*y), self.BlockSize, self.BlockSize);
+					end
+				end
+			end
 		end
 	end
 	if( self.Grid ) then

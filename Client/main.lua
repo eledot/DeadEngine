@@ -20,6 +20,7 @@ require "objects.panel";
 require "objects.clientcommand";
 require "objects.block";
 require "objects.mapcanvas";
+require "objects.map";
 
 -- Now for our modules, doing it like this actually has no meaning whatsoever it just makes me look like I know what I'm doing.
 math = require "modules.maths";
@@ -40,6 +41,7 @@ require "gui.slider";
 require "gui.label";
 require "gui.textentry";
 require "gui.progress";
+require "gui.checkbox";
 
 eng = require "engine";
 
@@ -49,6 +51,7 @@ require "commands";
 -- Game states, yeaaa.
 gameSplash = require "game.splash";
 worldEditor = require "game.editor";
+test = require "game.test";
 
 
 function love.load(arg)

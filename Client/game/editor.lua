@@ -42,14 +42,13 @@ end
 
 local function closeEditor()
 	if( Editor.MapCanvas ) then
-		-- Save dialog with true exit.
-			print("HERE")
+		Editor:SaveDialog(true)
 		return
 	end
 	clientcommand.Check("editor_close");
 end
 
-function Editor:SaveDialog()
+function Editor:SaveDialog(b)
 	local inter = self.Interfaces or {}
 	inter.Save = panel.CreateTitleFrame("Save Map", true, ScrW()/2 - 200, ScrH()/2-50, 400, 100)
 	
@@ -74,6 +73,9 @@ function Editor:SaveDialog()
 		Editor:SaveMap();
 		panel.Remove(inter.Save)
 		inter.Save = nil;
+		if( b ) then
+			clientcommand.Check("editor_close");
+		end
 	end
 	
 	inter.CancelButton = panel.Create("Button", inter.Save)
@@ -83,6 +85,9 @@ function Editor:SaveDialog()
 	inter.CancelButton.Func = function()
 		panel.Remove(inter.Save)
 		inter.Save = nil;
+		if( b ) then
+			clientcommand.Check("editor_close");
+		end
 	end
 	
 	inter.Save:SetLive(true);
@@ -194,10 +199,9 @@ function Editor:AddBarButtons()
 	AddButton("CollisionLayer", "collision", function() Editor.CurrentLayer = "CollisionLayer" end, 160, 2);
 	AddButton("Redo", "rotpos", function() Editor:Redo() end, 180, 2);--
 	AddButton("Undo", "rotneg", function() Editor:Undo() end, 200, 2);--
-	AddButton("TextureSelector", "tilesel", function() Editor:CreateTextureSelector() end, 220, 2);--
+	AddButton("TextureSelector", "tilesel", function() panel.FileViewer("Select Texture", "textures", function() end) end, 220, 2);--
 	AddButton("EntitySelector", "texsel", function() Editor:CreateEntitySelector() end, 240, 2);--
-	AddButton("OriginalLayout", "layout", function() --[[ origlayer]] end, 260, 2);--
-	AddButton("GenerateTerrain", "generate", function() Editor:Generator() end, 280, 2);
+	AddButton("GenerateTerrain", "generate", function() Editor:Generator() end, 260, 2);
 end
 local function rop2(n)
 	if( n < 32 ) then
@@ -323,9 +327,10 @@ local function CoroutineTerrain(seed, x, y, map, bar)
 	end;
 	local newBlock, noise;
 	local size = map:GetBlockSize();
-	for i = 1+seed, y+seed do
-		for j = 1+seed, x+seed do
-			newBlock = Block(j - seed, i - seed, map);
+	for i = 1+seed, x+seed do
+		map.Blocks[(i-1)-seed] = {}
+		for j = 1+seed, y+seed do
+			newBlock = Block((i-1) - seed, (j-1) - seed, map);
 			newBlock:SetSize(size);
 			newBlock.defTexture = eng.Textures["textures/ground/grass_light"..size..".png"];
 			noise = simplex.Simplex2D(j/x, i/y);
@@ -345,7 +350,8 @@ local function CoroutineTerrain(seed, x, y, map, bar)
 			if( bar ) then
 				bar:Add();
 			end
-			table.insert(map.Blocks, newBlock);
+			map.Blocks[(i-1)-seed][(j-1)-seed] = newBlock;
+			--table.insert(map.Blocks, newBlock);
 		end
 	end
 	return map;
@@ -354,7 +360,6 @@ end
 function Editor:GenerateTerrain(seed, x, y, size)
 	local mCanvas = Map(x, y);
 	self.Map.Name = self.Defaults.Name;
-	self.Map.Blocks = {}
 	local size = size or 16;
 	local err, mcan
 	mCanvas:SetBlockSize(size);
@@ -522,6 +527,9 @@ function Editor:Think()
 		self.MapCanvas:Move(0, -self.MapCanvas.BlockSize);
 	elseif( kd("left") ) then
 		self.MapCanvas:Move(self.MapCanvas.BlockSize, 0);
+	end
+	if( self.CurrentLayer == "CollisionLayer" and gui.MouseDown("l") ) then
+		self.MouseOver.Collide = true;
 	end
 end
 

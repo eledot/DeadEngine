@@ -16,6 +16,7 @@ function Panel()
 		ActualPos = { x = 0, y = 0 },
 		Color = Color(235, 235, 235, 210),
 		BorderColor = Color(22, 22, 22, 180),
+		TextColor = Color(22, 22, 22, 255),
 		Children = {},
 		Parent = false,
 		ActualPos = {x = 0, y = 0},
@@ -84,6 +85,10 @@ end
 
 function _R.Panel:SetBorderColor(col)
 	self.Color = col or Color(22, 22, 22, 180);
+end
+
+function _R.Panel:SetTextColor(col)
+	self.TextColor = col or Color(22, 22, 22, 255);
 end
 
 function _R.Panel:GetColor()
